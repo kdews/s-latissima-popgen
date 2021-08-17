@@ -8,7 +8,7 @@ sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.fastq.gz
 reads2=${samples_dir}/${sample_id}_R2.fastq.gz
-outdir=fastqc
+outdir=$3
 logdir=${outdir}_logs
 
 # Create output directory (if needed)
@@ -30,5 +30,5 @@ fi
 printf "Running FASTQC on 2 read files associated \
 with ${sample_id}: \n $reads1 and ${reads2}.\n\n"
 
-fastqc -t $SLURM_CPUS_PER_TASK -o fastqc $reads1 $reads2
+fastqc -t $SLURM_CPUS_PER_TASK -o $outdir $reads1 $reads2
 

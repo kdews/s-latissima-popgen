@@ -18,7 +18,7 @@ import subprocess
 ## JCGT_NanoAmplified_Saccharina__LIS-F1-3_3_TCTGTTGG_Saccharina_I1018_L1_R1.fastq.gz
 
 ## Renamed format:
-## UniqueID_SampleID_Barcode_Sequencer_Plate_Lane_Read.fastq.gz
+## UniqueID_SampleID_Sequencer_Plate_Lane_Read.fastq.gz
 
 # Specify new directory for writing files
 newdir = sys.argv[1]
@@ -40,7 +40,6 @@ with open(newdir + '/' + 'original_filenames.txt','r') as files:
                 sampleid = file_list[4]
                 sequencer = file_list[8]
                 plate = file_list[5]
-                barcode = file_list[6]
                 lane = file_list[9]
                 read_fq = file_list[10]
             elif any(item in file_stripped for item in alts):
@@ -48,7 +47,6 @@ with open(newdir + '/' + 'original_filenames.txt','r') as files:
                 sampleid = file_list[5]
                 sequencer = file_list[9]
                 plate = file_list[6]
-                barcode = file_list[7]
                 lane = file_list[10]
                 read_fq = file_list[11]
             else:
@@ -56,10 +54,9 @@ with open(newdir + '/' + 'original_filenames.txt','r') as files:
                 sampleid = file_list[4]
                 sequencer = file_list[8]
                 plate = file_list[5]
-                barcode = file_list[7]
                 lane = file_list[9]
                 read_fq = file_list[10]
-            newname = uniqueid + '_' + sampleid + '_' + barcode + '_' + sequencer + '_' + plate + '_' + lane + '_' + read_fq
+            newname = uniqueid + '_' + sampleid + '_' + sequencer + '_' + plate + '_' + lane + '_' + read_fq
             print('Copying', file_stripped, 'to', newdir + '/' + newname, sep=' ')
             changed_files.write(file_stripped + '\t' + newdir + '/' + newname + '\n')
             cmd = 'cp ' + file_stripped + ' ' + newdir + '/' + newname

@@ -8,6 +8,7 @@ sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.fastq.gz
 reads2=${samples_dir}/${sample_id}_R2.fastq.gz
+fastqc_dir=$3
 outdir=trimmed_reads
 logdir=trim_galore_logs
 
@@ -31,7 +32,8 @@ then
   mkdir $outdir 
 fi
 
-trim_galore --fastqc --paired --retain_unpaired --phred33 \
---output_dir $outdir --length 36 --stringency 1 -e 0.1 \
+trim_galore --paired --phred33 --output_dir $outdir \
+--length 36 --stringency 1 -e 0.1 \
+--fastqc_args "-o $fastqc_dir" \
 $reads1 $reads2
 
