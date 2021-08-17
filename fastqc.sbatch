@@ -9,7 +9,6 @@ samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.fastq.gz
 reads2=${samples_dir}/${sample_id}_R2.fastq.gz
 outdir=$3
-logdir=${outdir}_logs
 
 # Create output directory (if needed)
 if [[ ! -d $outdir ]]
@@ -32,3 +31,28 @@ with ${sample_id}: \n $reads1 and ${reads2}.\n\n"
 
 fastqc -t $SLURM_CPUS_PER_TASK -o $outdir $reads1 $reads2
 
+
+# Checkpoint
+if [[ $? -eq 0 ]]
+then
+	if [[ -f ${outdir}/${sample_id}_R1_fastqc.zip ]] \
+&& [[ -f ${outdir}/${sample_id}_R2_fastqc.zip ]] \
+&& [[ -f ${outdir}/${sample_id}_R1_fastqc.html ]] \
+&& [[ -f ${outdir}/${sample_id}_R2_fastqc.html ]]
+	then
+		if [[ ! -d checkpoints ]]
+		then
+			mkdir checkpoints
+		fi
+		touch \
+checkpoints/fastqc_${SLURM_ARRAY_TASK_ID}.checkpoint
+		exit 0
+	else
+		printf "Error - not all FastQC files \
+created for ${sample_id}."
+		exit 1
+	fi
+else
+	printf "Error - non-zero exit code returned by FastQC."
+	exit 1
+fi
