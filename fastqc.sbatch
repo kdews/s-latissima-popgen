@@ -2,23 +2,20 @@
 #SBATCH --mem=5gb
 #SBATCH --time=08:00:00
 #SBATCH --cpus-per-task=12
-#SBATCH --exclusive
 
 samples_file=$1
 sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-samples_dir=all_wgs
+samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.fastq.gz
 reads2=${samples_dir}/${sample_id}_R2.fastq.gz
 outdir=fastqc
 logdir=${outdir}_logs
 
-# Create FASTQC output directory (if needed)
-if [[ -d $outdir ]]
+# Create output directory (if needed)
+if [[ ! -d $outdir ]]
 then
-  printf "Detected output directory ${outdir}.\n\n"
-else
-  printf "Creating output directory ${outdir}.\n\n"
-  mkdir $outdir 
+	printf "Creating output directory ${outdir}.\n\n"
+	mkdir $outdir 
 fi
 
 # Load fastqc
@@ -28,8 +25,6 @@ fastqc --version
 if [[ $? -ne 0 ]]
 then
   printf "Error - check FASTQC installation.\n\n"
-else
-  printf "FASTQC loaded successfully.\n\n"
 fi
 
 printf "Running FASTQC on 2 read files associated \
