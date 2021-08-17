@@ -1,4 +1,7 @@
-import os,re,sys,subprocess
+import os
+import re
+import sys
+import subprocess
 
 # This script renames all files in a folder to preferred format.
 
@@ -28,27 +31,30 @@ with open('original_filenames.txt','r') as files:
             file_stripped = file.strip()
             alts = ['I1018','I1019']
             if 'LIS' in file_stripped:
+                uniqueid = file_stripped.rsplit('_')[0]
                 sampleid = file_stripped.rsplit('_')[4]
                 sequencer = file_stripped.rsplit('_')[8]
                 plate = file_stripped.rsplit('_')[5]
                 lane = file_stripped.rsplit('_')[9]
                 read_fq = file_stripped.rsplit('_')[10]
             elif any(item in file_stripped for item in alts):
+                uniqueid = file_stripped.rsplit('_')[0]
                 sampleid = file_stripped.rsplit('_')[5]
                 sequencer = file_stripped.rsplit('_')[9]
                 plate = file_stripped.rsplit('_')[6]
                 lane = file_stripped.rsplit('_')[10]
                 read_fq = file_stripped.rsplit('_')[11]
             else:
+                uniqueid = file_stripped.rsplit('_')[0]
                 sampleid = file_stripped.rsplit('_')[4]
                 sequencer = file_stripped.rsplit('_')[8]
                 plate = file_stripped.rsplit('_')[5]
                 lane = file_stripped.rsplit('_')[9]
                 read_fq = file_stripped.rsplit('_')[10]
-            newname = sampleid + '_' + sequencer + '_' + lane + '_' + read_fq
-            print('Converting', file_stripped, 'to', newname, sep=' ')
+            newname = uniqueid + '_' + sampleid + '_' + sequencer + '_' + lane + '_' + read_fq
+            print('Copying', file_stripped, 'to', newname, sep=' ')
             changed_files.write(file_stripped + '\t' + newname + '\n')
-            cmd = 'mv ' + file_stripped + ' ' + newname
+            cmd = 'cp ' + file_stripped + ' ' + newname
             os.system(cmd)
         changed_files.close()
     files.close()
