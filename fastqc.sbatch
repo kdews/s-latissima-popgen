@@ -23,7 +23,8 @@ conda activate fastqc
 fastqc --version
 if [[ $? -ne 0 ]]
 then
-  printf "Error - check FASTQC installation.\n\n"
+	printf "Error - check FASTQC installation.\n"
+	exit 1
 fi
 
 printf "Running FASTQC on 2 read files associated \
@@ -49,10 +50,10 @@ checkpoints/fastqc_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - not all FastQC files \
-created for ${sample_id}."
+created for ${sample_id}.\n"
 		exit 1
 	fi
 else
-	printf "Error - non-zero exit code returned by FastQC."
+	printf "Error - non-zero exit code returned by FastQC.\n"
 	exit 1
 fi

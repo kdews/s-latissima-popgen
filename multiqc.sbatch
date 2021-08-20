@@ -16,7 +16,7 @@ then
 fi
 
 multiqc -c ${scripts_dir}multiqc_config.yaml \
--o ${qc_dir} $input_dir
+-o $qc_dir $qc_dir
 
 # Checkpoints
 if [[ $? -eq 0 ]]
@@ -30,11 +30,11 @@ then
 		touch checkpoints/multiqc.checkpoint
 		exit 0
 	else
-		printf "Error - MultiQC report not created."
+		printf "Error - MultiQC report not created.\n"
 		exit 1
 	fi
 else
-	printf "Error - non-zero exit code returned by MultiQC."
+	printf "Error - non-zero exit code returned by MultiQC.\n"
 	exit 1
 fi
 

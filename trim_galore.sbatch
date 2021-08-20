@@ -9,6 +9,7 @@ samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.fastq.gz
 reads2=${samples_dir}/${sample_id}_R2.fastq.gz
 outdir=$3
+trimmed_dir=$4
 
 # Load trim_galore
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -16,7 +17,7 @@ conda activate trimgalore
 trim_galore --version
 if [[ $? -ne 0 ]]
 then
-  printf "Error - check Trim Galore! installation.\n\n"
+  printf "Error - check Trim Galore! installation.\n"
 fi
 
 printf "Running Trim Galore! on 2 read files associated \
@@ -30,8 +31,13 @@ trim_galore --paired --phred33 --output_dir $outdir \
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
-	if [[ `ls ${outdir}/${sample_id}*` == 8 ]]
+	if [[ ! -d $trimmed_dir ]]
 	then
+		mkdir $trimmed_dir
+	fi
+	if [[ `ls ${outdir}/${sample_id}*val* | wc -l` == 6 ]]
+	then
+		mv ${outdir}/${sample_id}*fq.gz $trimmed_dir
 		if [[ ! -d checkpoints ]]
 		then
 			mkdir checkpoints
@@ -41,11 +47,11 @@ checkpoints/trim_galore_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - not all reads trimmed \
-for ${sample_id}."
+for ${sample_id}.\n"
 		exit 1
 	fi
 else
-	printf "Error - non-zero exit code returned by Trim Galore!"
+	printf "Error - non-zero exit code returned by Trim Galore!\n"
 	exit 1
 fi
 
