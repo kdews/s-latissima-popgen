@@ -7,16 +7,16 @@ genome=$1
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
 samples_file=$2
-sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 trimmed_dir=$3
+qc_dir=save_bams
+indiv_file=$5
+outdir=save_bams
+array_num=$6
+sample_id=`cat $samples_file | sed -n ${array_num}p`
 reads1=${trimmed_dir}/${sample_id}_R1_val_1.fq.gz
 reads2=${trimmed_dir}/${sample_id}_R2_val_2.fq.gz
-qc_dir=$4
-indiv_file=$5
-outdir=hisat2
 # Define memory per thread for samtools sort
-mem_per_thread="$(( 9 * $SLURM_MEM_PER_NODE / \
-$SLURM_JOB_CPUS_PER_NODE / 10000 ))G"
+mem_per_thread="$(( 9 * $SLURM_MEM_PER_NODE / $SLURM_JOB_CPUS_PER_NODE / 10000 ))G"
 
 # Load HISAT2
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -79,7 +79,7 @@ then
 			mkdir checkpoints
 		fi
 		touch \
-checkpoints/hisat2_${SLURM_ARRAY_TASK_ID}.checkpoint
+checkpoints/hisat2_${array_num}.checkpoint
 		exit 0
 	else
 		printf "Error - sorted BAM file not created \

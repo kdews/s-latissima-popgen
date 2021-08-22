@@ -66,11 +66,11 @@ else
 	printf "MD5sum detected in ${outdir}.\n"
 fi
 
-printf "Comparing MD5sum files.\n"
 # Verify that file contents are the same and create
 # $samples_file listing new sample IDs
+printf "Comparing MD5sum files.\n"
 md5sum_test="test"
-if [[ ${datadir}/md5sum ]] & [[ ${outdir}/md5sum ]]
+if [[ -f ${datadir}/md5sum ]] && [[ -f ${outdir}/md5sum ]]
 then
 	md5sum_test=`comm -3 \
 <(awk '{print $1}' ${datadir}/md5sum | sort) \

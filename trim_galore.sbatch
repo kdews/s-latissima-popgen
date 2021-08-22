@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --mem=8gb
-#SBATCH --time=1-0
+#SBATCH --time=05:00:00
 #SBATCH --cpus-per-task=15
 
 samples_file=$1
@@ -35,8 +35,11 @@ then
 	then
 		mkdir $trimmed_dir
 	fi
-	if [[ `ls ${outdir}/${sample_id}*val* | wc -l` == 6 ]]
+	if [[ `ls ${outdir}/${sample_id}*val* | wc -l` == 6 ]] && \
+[[ -d $trimmed_dir ]]
 	then
+		printf "Trimming and FastQC run completed \
+for ${sample_id}.\n"
 		mv ${outdir}/${sample_id}*fq.gz $trimmed_dir
 		if [[ ! -d checkpoints ]]
 		then

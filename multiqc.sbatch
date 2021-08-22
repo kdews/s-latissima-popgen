@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --mem=8gb
-#SBATCH --time=01:00:00
+#SBATCH --mem=50gb
+#SBATCH --time=1-0
 
 qc_dir=$1
 # Optional, to specify directory containing scripts
