@@ -214,7 +214,6 @@ then
 	# Now check for any existing checkpoints for this step
 	if [[ `checkpoints_exist $input_prefix` == "true" ]]
 	then
-		echo `checkpoints_exist $input_prefix`
 		printf "Checkpoint detected for ${input_prefix}. Validating...\n"
 		# If required number of checkpoints not met, erase existing
 		if [[ `ls checkpoints/${input_prefix}*.checkpoint | \
@@ -389,8 +388,8 @@ then
 		printf "Error detected in ${input_prefix} checkpoint. \
 Restarting step.\n"
 		wipecheckpoints $input_prefix
-		hisat2_jobid=`no_depend --array $array_size \
-${scripts_dir}${input_sbatch} $genome $samples_file $trimmed_dir $qc_dir $indiv_file`
+#		hisat2_jobid=`no_depend --array $array_size \
+#${scripts_dir}${input_sbatch} $genome $samples_file $trimmed_dir $qc_dir $indiv_file`
 	elif [[ `ls checkpoints/${input_prefix}*.checkpoint | wc -l` -eq $num_samples ]]
 	then
 		date
@@ -400,8 +399,8 @@ else
 	date
 	printf "Beginning ${input_prefix} step.\n"
 	wipecheckpoints $input_prefix
-	hisat2_jobid=`no_depend --array $array_size ${scripts_dir}${input_sbatch} \
-$genome $samples_file $trimmed_dir $qc_dir $indiv_file`
+#	hisat2_jobid=`no_depend --array $array_size ${scripts_dir}${input_sbatch} \
+#$genome $samples_file $trimmed_dir $qc_dir $indiv_file`
 fi
 
 # Sort IDs in $indiv_file for unique invidual IDs
@@ -419,14 +418,14 @@ then
 	date
 	printf "Sorting $indiv_file for unique invidual IDs.\n"
 	sort -u $indiv_file > sorted_${indiv_file}
-	mv sorted_${indiv_file} > $indiv_file
+	mv sorted_${indiv_file} $indiv_file
 else
 	date
 	printf "Error - $indiv_file not detected.\n"
 	exit 1
 fi
 
-# Run MarkDuplicates on all samples
+# Run GATK4 MarkDuplicates on all samples
 # Keep same dependency
 dependency_prefix=$dependency_prefix
 input_sbatch=mark_dupes.sbatch
@@ -467,7 +466,7 @@ fi
 # Set new array size for BAM collapse & after = number of individuals
 if [[ -f $indiv_file ]]
 then
-	num_indiv=`ls $indiv_file | wc -l`
+	num_indiv=`cat $indiv_file | wc -l`
 	array_size=$num_indiv
 	date
 	printf "Array size set to ${num_indiv}.\n"
@@ -477,7 +476,7 @@ else
 	exit 1
 fi
 
-# Collapse BAMs
+# Collapse BAMs with GATK4 MergeSamFiles
 # Depend start upon last job step
 dependency_prefix=$input_prefix
 input_sbatch=collapse_bams.sbatch
@@ -488,7 +487,7 @@ until [[ -f $indiv_file ]] && \
 do
 	date
 	printf "Waiting for completion of $dependency_prefix step.\n"
-	sleep 3600
+	sleep 1200
 done
 if [[ `checkpoints_exist $input_prefix` == "true" ]]
 then

@@ -5,7 +5,8 @@
 genome=$1
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-sample_id=$2
+samples_file=$2
+sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 qc_dir=$3
 indir=hisat2
 outdir=mark_dupes

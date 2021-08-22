@@ -27,13 +27,17 @@ then
 	mkdir $outdir
 fi
 
-# Generate array to hold list of BAMs associated 
-# with the $indiv_id
+# Generate array to hold list of BAMs associated with 
+# the $indiv_id and the required "-I" flag before each
 f=`ls ${indir}/*${indiv_id}*.sorted.marked.bam`
 input_bams=(${f// / })
+cnt=${#input_bams[@]}
+for ((i=0;i<cnt;i++)); do
+    input_bams[i]="-I ${input_bams[i]}"
+done
 
 # Run GATK4's MergeSamFiles
-gatk MergeSamFiles -I ${input_bams[*]} \
+gatk MergeSamFiles ${input_bams[*]} \
 -O ${outdir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
 --USE_THREADING --TMP_DIR collapse_bams_temp
 
