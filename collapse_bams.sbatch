@@ -8,7 +8,7 @@ genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
 indiv_file=$2
 indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-indir=marked_dupes
+indir=mark_dupes
 outdir=collapsed_bams
 
 # Load GATK4

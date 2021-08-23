@@ -6,7 +6,9 @@ genome=$1
 genome_basename=$(basename -- $genome)
 genome_basename_unzip=`echo $genome_basename | sed 's/\.gz//g'`
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-interval=$2
+indiv_file=$2
+indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+interval=$3
 indir=gvcfs
 
 # Load GATK4
@@ -17,12 +19,6 @@ if [[ $? -ne 0 ]]
 then
 	printf "Error - check GATK4 installation.\n"
 	exit 1
-fi
-
-# Create output directory
-if [[ ! -d $outdir ]]
-then
-	mkdir $outdir
 fi
 
 # Create array of input gVCFs

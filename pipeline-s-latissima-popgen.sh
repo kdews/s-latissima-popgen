@@ -32,6 +32,12 @@ FASTQ files, and outputs...\n\
 	master file to index individual IDs\n\
  - mark_dupes\n\
 	*sorted.marked.bam - sorted alignment files with duplicates marked\n\
+ - collapsed_bams\n\
+	*sorted.marked.merged.bam - sorted alignment files merged by individual\n\
+ - gvcfs\n\
+	*.g.vcf.gz - genome variant call files (gVCFs) for each individual\n\
+ - genotyped_vcfs\n\
+	*vcf.gz - variant call files (VCFs) for each individual\n\
  - *_logs/\n\
 	*.log - SLRUM log files from inividual job step submissions\n\
  - checkpoints/\n\
@@ -445,8 +451,8 @@ then
 	if [[ `ls checkpoints/${input_prefix}*.checkpoint | wc -l` -ne $num_samples ]]
 	then
 		date
-		printf "Error detected in ${input_prefix} checkpoint. \
-Restarting step.\n"
+#		printf "Error detected in ${input_prefix} checkpoint. \
+#Restarting step.\n"
 		wipecheckpoints $input_prefix
 		mark_dupes_jobid=`no_depend --array $array_size \
 ${scripts_dir}${input_sbatch} $genome $samples_file $qc_dir`
@@ -459,8 +465,8 @@ else
 	date
 	printf "Beginning ${input_prefix} step.\n"
 	wipecheckpoints $input_prefix
-	mark_dupes_jobid=`no_depend --array $array_size ${scripts_dir}${input_sbatch} \
-$genome $samples_file $qc_dir`
+#	mark_dupes_jobid=`no_depend --array $array_size ${scripts_dir}${input_sbatch} \
+#$genome $samples_file $qc_dir`
 fi
 
 # Set new array size for BAM collapse & after = number of individuals
@@ -487,7 +493,7 @@ until [[ -f $indiv_file ]] && \
 do
 	date
 	printf "Waiting for completion of $dependency_prefix step.\n"
-	sleep 1200
+	sleep 3600
 done
 if [[ `checkpoints_exist $input_prefix` == "true" ]]
 then
