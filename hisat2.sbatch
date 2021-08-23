@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --time=1-0
-#SBATCH --mem=75g
+#SBATCH --mem=120g
 #SBATCH --cpus-per-task=5
 
 genome=$1
