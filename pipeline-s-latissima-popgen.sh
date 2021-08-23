@@ -173,6 +173,48 @@ wipecheckpoints () {
                 rm checkpoints/${1}*.checkpoint
         fi
 }
+# Define function to run job step with a set number of 
+# checkpoints as a dependency
+
+	dependency_prefix=$input_prefix
+	input_prefix=genotype_gvcfs.sbatch
+	input_prefix=`get_prefix $input_sbatch`
+	until [[ -f $indiv_file ]] && \
+	[[ `checkpoints_exist $dependency_prefix` == "true" ]] && \
+	[[ `ls checkpoints/${dependency_prefix}*.checkpoint | \
+wc -l` -eq $num_indiv ]]
+	do
+		date
+		printf "Waiting for completion of $dependency_prefix step.\n"
+		sleep 3600
+	done
+	if [[ `checkpoints_exist $input_prefix` == "true" ]]
+	then
+		date
+		printf "Checkpoint detected for ${input_prefix}. Validating...\n"
+		if [[ `ls checkpoints/${input_prefix}*.checkpoint | wc -l` -ne $num_indiv ]]
+		then
+			printf "Error detected in ${input_prefix} checkpoint. \
+	Restarting step.\n"
+		wipecheckpoints $input_prefix
+		genotype_gvcfs_jobid=`no_depend --array $array_size \
+	${scripts_dir}${input_sbatch} $genome $indiv_file`
+		elif [[ `ls checkpoints/${input_prefix}*.checkpoint | wc -l` -eq $num_indiv ]]
+		then
+			date
+			printf "${input_prefix} run already completed. Skipping.\n"
+		fi
+	else
+		date
+		printf "Beginning ${input_prefix} step.\n"
+		wipecheckpoints $input_prefix
+		genotype_gvcfs_jobid=`no_depend --array $array_size \
+	${scripts_dir}${input_sbatch} $genome $indiv_file`
+	fi
+
+
+
+
 
 # Run pipeline
 # Set array size for working with sample IDs
@@ -557,3 +599,39 @@ else
 $genome $indiv_file`
 fi
 
+# Run GATK4 GenotypeGVCFs
+# Depend start upon last job step
+dependency_prefix=$input_prefix
+input_prefix=genotype_gvcfs.sbatch
+input_prefix=`get_prefix $input_sbatch`
+until [[ -f $indiv_file ]] && \
+[[ `checkpoints_exist $dependency_prefix` == "true" ]] && \
+[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $num_indiv ]]
+do
+	date
+	printf "Waiting for completion of $dependency_prefix step.\n"
+	sleep 3600
+done
+if [[ `checkpoints_exist $input_prefix` == "true" ]]
+then
+	date
+	printf "Checkpoint detected for ${input_prefix}. Validating...\n"
+	if [[ `ls checkpoints/${input_prefix}*.checkpoint | wc -l` -ne $num_indiv ]]
+	then
+		printf "Error detected in ${input_prefix} checkpoint. \
+Restarting step.\n"
+	wipecheckpoints $input_prefix
+	genotype_gvcfs_jobid=`no_depend --array $array_size \
+${scripts_dir}${input_sbatch} $genome $indiv_file`
+	elif [[ `ls checkpoints/${input_prefix}*.checkpoint | wc -l` -eq $num_indiv ]]
+	then
+		date
+		printf "${input_prefix} run already completed. Skipping.\n"
+	fi
+else
+	date
+	printf "Beginning ${input_prefix} step.\n"
+	wipecheckpoints $input_prefix
+	genotype_gvcfs_jobid=`no_depend --array $array_size \
+${scripts_dir}${input_sbatch} $genome $indiv_file`
+fi
