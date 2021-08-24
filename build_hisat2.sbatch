@@ -10,86 +10,86 @@ genome_base=`echo $genome_basename | sed 's/\..*//g'`
 genome_path=`dirname $genome`
 outdir=hisat2
 
-# Load HISAT2
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate hisat2
+## Load HISAT2
+#source ~/bin/anaconda3/etc/profile.d/conda.sh
+#conda activate hisat2
 hisat2 --version
 if [[ $? -ne 0 ]]
 then
   printf "Error - check HISAT2 installation.\n"
 fi
 
-# Copy input genome file to $outdir (if needed)
-if [[ ! -d hisat2 ]]
-then
-	printf "Copying $genome to new directory '${outdir}'.\n"
-	mkdir $outdir
-fi
-if [[ !  -f ${outdir}/$genome_basename ]]
-then
-	cp $genome $outdir
-fi
-
-# Check copy integrity, then unzip
-printf "Checking $genome copy (${outdir}/${genome_basename}) \
-file integrity with MD5sum.\n"
-# Run MD5sum on contents of $datadir (if needed)
-if [[ ! -f ${genome_path}/md5sum ]]
-then
-	printf "Creating MD5sum of $genome_basename in ${genome_path}.\n"
-	md5sum $genome >> ${genome_path}/md5sum
-else
-	printf "MD5sum detected in ${genome_path}.\n"
-fi
-# Run MD5sum on contents of $outdir (if needed)
-if [[ ! -f ${outdir}/md5sum ]]
-then
-	printf "Creating MD5sum of $genome_basename in ${outdir}.\n"
-	md5sum ${outdir}/${genome_basename} >> ${outdir}/md5sum
-else
-	printf "MD5sum detected in ${outdir}.\n"
-fi
-# Verify that file contents are the same and create
-# $samples_file listing new sample IDs
-printf "Comparing MD5sum files.\n"
-md5sum_test="test not run"
-if [[ -f ${genome_path}/md5sum ]] && [[ -f ${outdir}/md5sum ]]
-then
-	md5sum_test=`comm -3 \
-<(awk '{print $1}' ${genome_path}/md5sum) \
-<(awk '{print $1}' ${outdir}/md5sum)`
-else
-	printf "Error - MD5sum files not created.\n"
-	exit 1
-fi
-# First, verify that copy worked, then unzip copy (if needed)
-if [[ -z $md5sum_test ]]
-then
-	# If copy isn't zipped, does nothing
-	if [[ ! -f ${genome_basename_unzip} ]]
-	then
-		printf "Unzipping ${genome_basename}.\n"
-		zcat ${outdir}/${genome_basename} > \
-${outdir}/${genome_basename_unzip}
-		unzip_test="test not run"
-		# Compare contents of zipped and unzipped genomes
-		unzip_test=`comm -3 \
-<(zcat ${outdir}/${genome_basename} | sort) \
-<(cat ${outdir}/${genome_basename_unzip} | sort)`
-		if [[ ! -z $unzip_test ]]
-		then
-			printf "Error - Unzip of \
-${outdir}/${genome_basename} unsuccessful.\n See output of comm -3:\n\n"
-			printf "${unzip_test}\n"
-			exit 1
-		fi
-	fi
-else
-	printf "Error - copy of genome file $genome to directory \
-'${outdir}' unsuccessful. \n See output of comm -3 of md5sum files:\n\n"
-	printf "${md5sum_test}\n"
-	exit 1
-fi
+## Copy input genome file to $outdir (if needed)
+#if [[ ! -d hisat2 ]]
+#then
+#	mkdir $outdir
+#fi
+#if [[ !  -f ${outdir}/$genome_basename ]]
+#then
+#	printf "Copying $genome to new directory '${outdir}'.\n"
+#	cp $genome $outdir
+#fi
+#
+## Check copy integrity, then unzip
+#printf "Checking $genome copy (${outdir}/${genome_basename}) \
+#file integrity with MD5sum.\n"
+## Run MD5sum on contents of $datadir (if needed)
+#if [[ ! -f ${genome_path}/md5sum ]]
+#then
+#	printf "Creating MD5sum of $genome_basename in ${genome_path}.\n"
+#	md5sum $genome >> ${genome_path}/md5sum
+#else
+#	printf "MD5sum detected in ${genome_path}.\n"
+#fi
+## Run MD5sum on contents of $outdir (if needed)
+#if [[ ! -f ${outdir}/md5sum ]]
+#then
+#	printf "Creating MD5sum of $genome_basename in ${outdir}.\n"
+#	md5sum ${outdir}/${genome_basename} >> ${outdir}/md5sum
+#else
+#	printf "MD5sum detected in ${outdir}.\n"
+#fi
+## Verify that file contents are the same and create
+## $samples_file listing new sample IDs
+#printf "Comparing MD5sum files.\n"
+#md5sum_test="test not run"
+#if [[ -f ${genome_path}/md5sum ]] && [[ -f ${outdir}/md5sum ]]
+#then
+#	md5sum_test=`comm -3 \
+#<(awk '{print $1}' ${genome_path}/md5sum) \
+#<(awk '{print $1}' ${outdir}/md5sum)`
+#else
+#	printf "Error - MD5sum files not created.\n"
+#	exit 1
+#fi
+## First, verify that copy worked, then unzip copy (if needed)
+#if [[ -z $md5sum_test ]]
+#then
+#	# If copy isn't zipped, does nothing
+#	if [[ ! -f ${genome_basename_unzip} ]]
+#	then
+#		printf "Unzipping ${genome_basename}.\n"
+#		zcat ${outdir}/${genome_basename} > \
+#${outdir}/${genome_basename_unzip}
+#		unzip_test="test not run"
+#		# Compare contents of zipped and unzipped genomes
+#		unzip_test=`comm -3 \
+#<(zcat ${outdir}/${genome_basename} | sort) \
+#<(cat ${outdir}/${genome_basename_unzip} | sort)`
+#		if [[ ! -z $unzip_test ]]
+#		then
+#			printf "Error - Unzip of \
+#${outdir}/${genome_basename} unsuccessful.\n See output of comm -3:\n\n"
+#			printf "${unzip_test}\n"
+#			exit 1
+#		fi
+#	fi
+#else
+#	printf "Error - copy of genome file $genome to directory \
+#'${outdir}' unsuccessful. \n See output of comm -3 of md5sum files:\n\n"
+#	printf "${md5sum_test}\n"
+#	exit 1
+#fi
 
 # Start HISAT2-build run
 	printf "Running HISAT2-build on genome file: \
@@ -97,7 +97,6 @@ ${genome_basename_unzip}\n"
 	cd ${outdir}
 	hisat2-build -p ${SLURM_CPUS_PER_TASK} \
 $genome_basename_unzip $genome_base
-	cd ..
 
 # Checkpoint
 files_exist () {
@@ -111,14 +110,16 @@ files_exist () {
 
 if [[ $? -eq 0 ]]
 then
+	cd ..
 	if [[ `files_exist ${genome_base}` == "true" ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
 			mkdir checkpoints
 		fi
-		touch \
-checkpoints/hisat2_build.checkpoint
+		echo "Success"
+#		touch \
+#checkpoints/hisat2_build.checkpoint
 		exit 0
 	else
 		printf "Error - ${genome_base}.*.ht2 files \

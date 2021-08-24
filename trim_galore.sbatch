@@ -6,8 +6,8 @@
 samples_file=$1
 sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 samples_dir=$2
-reads1=${samples_dir}/${sample_id}_R1.fastq.gz
-reads2=${samples_dir}/${sample_id}_R2.fastq.gz
+reads1=${samples_dir}/${sample_id}_R1.repaired.fastq.gz
+reads2=${samples_dir}/${sample_id}_R2.repaired.fastq.gz
 outdir=$3
 trimmed_dir=$4
 
@@ -17,7 +17,7 @@ conda activate trimgalore
 trim_galore --version
 if [[ $? -ne 0 ]]
 then
-  printf "Error - check Trim Galore! installation.\n"
+ 	printf "Error - check Trim Galore! installation.\n"
 fi
 
 printf "Running Trim Galore! on 2 read files associated \

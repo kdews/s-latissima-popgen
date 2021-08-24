@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --time=1-0
-#SBATCH --mem=120g
-#SBATCH --cpus-per-task=5
+#SBATCH --mem=50g
+#SBATCH --cpus-per-task=12
 
 genome=$1
 genome_basename=$(basename -- $genome)
@@ -9,18 +9,18 @@ genome_base=`echo $genome_basename | sed 's/\..*//g'`
 samples_file=$2
 sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 trimmed_dir=$3
-reads1=${trimmed_dir}/${sample_id}_R1_val_1.fq.gz
-reads2=${trimmed_dir}/${sample_id}_R2_val_2.fq.gz
-qc_dir=$4
+reads1=`realpath ${trimmed_dir}/${sample_id}_R1_val_1.fq.gz`
+reads2=`realpath ${trimmed_dir}/${sample_id}_R2_val_2.fq.gz`
+qc_dir=`realpath $4`
 indiv_file=$5
 outdir=hisat2
 # Define memory per thread for samtools sort
 mem_per_thread="$(( 9 * $SLURM_MEM_PER_NODE / \
 $SLURM_JOB_CPUS_PER_NODE / 10000 ))G"
 
-# Load HISAT2
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate hisat2
+## Load HISAT2
+#source ~/bin/anaconda3/etc/profile.d/conda.sh
+#conda activate hisat2
 hisat2 --version
 if [[ $? -ne 0 ]]
 then
@@ -47,7 +47,7 @@ printf "Read group ID = ID:${rg_id}\n"
 # Read group SaMple name (SM) = shortened SampleID within input $sample_id (no UniqueID)
 rg_sm="${rgs1[1]}"
 printf "Read group sample name = SM:${rg_sm}\n"
-echo "$rg_sm" >> $indiv_file
+#echo "$rg_sm" >> $indiv_file
 # Read group Platform Unit (PU) = {FLOWCELL_BARCODE}.{LANE}.{SAMPLE_NAME}
 rg_pu="${rgs2[2]}.${rgs2[3]}.${rgs1[1]}"
 printf "Read group platform unit = PU:${rg_pu}\n"
@@ -60,29 +60,29 @@ printf "Read group platform = PL:${rg_pl}\n\n"
 
 # Run HISAT2 & pipe output to samtools
 cd $outdir
-hisat2 -p ${SLURM_CPUS_PER_TASK} \
--x $genome_base -1 ../${reads1} -2 ../${reads2} \
+hisat2 -p ${SLURM_CPUS_PER_TASK} --time \
+-x $genome_base -1 ${reads1} -2 ${reads2} \
 --rg-id=${rg_id} --rg SM:${rg_sm} --rg LB:${rg_lb} \
 --rg PU:${rg_pu} --rg PL:${rg_pl} \
---summary-file=../${qc_dir}/${sample_id}_${genome_base}.hisat2.summary | \
-samtools sort -O BAM -@ ${SLURM_CPUS_PER_TASK} -m ${mem_per_thread} \
--T ${sample_id}_${genome_base} -o ${sample_id}_${genome_base}.sorted.bam
+--summary-file=${qc_dir}/${sample_id}_${genome_base}.hisat2_rerun.summary \
+-S ${sample_id}_${genome_base}.sam
 
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
 	cd ..
-	if [[ -f ${outdir}/${sample_id}_${genome_base}.sorted.bam ]]
+	if [[ -f ${outdir}/${sample_id}_${genome_base}.sam ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
 			mkdir checkpoints
 		fi
-		touch \
-checkpoints/hisat2_${SLURM_ARRAY_TASK_ID}.checkpoint
+		echo "Success"
+#		touch \
+#checkpoints/hisat2_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
-		printf "Error - sorted BAM file not created \
+		printf "Error - alignment file not created \
 for ${sample_id}.\n"
 		exit 1
 	fi

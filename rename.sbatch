@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --mem=8gb
+#SBATCH --mem=5mb
 #SBATCH --time=03:00:00
 
 datadir=$1
 outdir=$2
-logdir=test_logs
+logdir=rename_logs
 samples_file=$3
 # Optional, to specify directory containing scripts
 scripts_dir=$4/

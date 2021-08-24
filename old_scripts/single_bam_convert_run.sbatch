@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --time=1-0
 #SBATCH --mem=75g
-#SBATCH --cpus-per-task=5
+#SBATCH --cpus-per-task=15
 
 genome=$1
 genome_basename=$(basename -- $genome)
@@ -27,14 +27,14 @@ fi
 # Convert SAM to BAM & sort by coordinate with samtools
 samtools sort -O BAM \
 -@ ${SLURM_CPUS_PER_TASK} -m ${mem_per_thread} \
--T ${outdir}/${sample_id}_${genome_base} \
--o ${outdir}/${sample_id}_${genome_base}.sorted.bam \
+-T ${outdir}/${sample_id}_${genome_base}_tmp \
+-o ${outdir}/${sample_id}_${genome_base}.rerun.sorted.bam \
 ${outdir}/${sample_id}_${genome_base}.sam
 
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
-	if [[ -f ${outdir}/${sample_id}_${genome_base}.sorted.bam ]]
+	if [[ -f ${outdir}/${sample_id}_${genome_base}.rerun.sorted.bam ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
