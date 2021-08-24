@@ -9,8 +9,8 @@ genome_base=`echo $genome_basename | sed 's/\..*//g'`
 samples_file=$2
 sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 trimmed_dir=$3
-reads1=`realpath ${trimmed_dir}/${sample_id}_R1_val_1.fq.gz`
-reads2=`realpath ${trimmed_dir}/${sample_id}_R2_val_2.fq.gz`
+reads1=`realpath ${trimmed_dir}/${sample_id}_R1.repaired.fastq.gz`
+reads2=`realpath ${trimmed_dir}/${sample_id}_R2.repaired.fastq.gz`
 qc_dir=`realpath $4`
 indiv_file=$5
 outdir=hisat2
@@ -65,21 +65,21 @@ hisat2 -p ${SLURM_CPUS_PER_TASK} --time \
 --rg-id=${rg_id} --rg SM:${rg_sm} --rg LB:${rg_lb} \
 --rg PU:${rg_pu} --rg PL:${rg_pl} \
 --summary-file=${qc_dir}/${sample_id}_${genome_base}.hisat2_rerun.summary \
--S ${sample_id}_${genome_base}.sam
+-S ${sample_id}_${genome_base}.no_trim.sam
 
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
 	cd ..
-	if [[ -f ${outdir}/${sample_id}_${genome_base}.sam ]]
+	if [[ -f ${outdir}/${sample_id}_${genome_base}.no_trim.sam ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
 			mkdir checkpoints
 		fi
 		echo "Success"
-#		touch \
-#checkpoints/hisat2_${SLURM_ARRAY_TASK_ID}.checkpoint
+		touch \
+checkpoints/hisat2_rerun_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - alignment file not created \

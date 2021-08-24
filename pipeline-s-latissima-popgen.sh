@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -p cegs
-#SBATCH --time=4-0
+#SBATCH --time=3-0
 #SBATCH -J queen
-#SBATCH -o queen.log
+#SBATCH -o %x.log
 
 ## Saccharina latissima SNP calling pipeline
 # A SLURM- and conda-dependent pipeline with sequential job
@@ -229,31 +229,35 @@ step.\n"; } >> $pipeline_log
 	done
 	if [[ `checkpoints_exist $input_prefix` = "true" ]]
 	then
+		echo "$input_prefix `checkpoints_exist $input_prefix`" >> $pipeline_log
 		local num_checks=`ls checkpoints/${input_prefix}*.checkpoint | wc -l`
 		{ date & printf "${num_checks} checkpoint(s) detected for ${input_prefix}. \
 Validating...\n"; } >> $pipeline_log
 		if [[ $1 = "--array" ]] && [[ $array_indices ]] && \
-[[ "$num_checks" -ne $array_indices ]] 
+[[ $num_checks -ne $array_indices ]] 
 		then
-			local array_flag="${1}=`missingcheckpoints $input_prefix $array_indices`"
+			local array_flag="${1} `missingcheckpoints $input_prefix $array_indices`"
 		printf "Error detected in ${input_prefix} checkpoint. \
-Restarting step.\n" >> $pipeline_log
+Restarting step at checkpoint.\n" >> $pipeline_log
 		echo "Submitting job array indices: $array_indices" >> $pipeline_log
-		local jobid=`no_depend $array_flag \
-${scripts_dir}${input_sbatch} "${trailing_args}"`
-		elif [[ "$num_checks" -eq $array_indices ]] || \
-[[ $1 != "--array" ]] && [[ "$num_checks" -eq 1 ]]
+		local jobid="no_depend $array_flag $input_sbatch $trailing_args"
+		elif [[ $num_checks -eq $array_indices ]]
 		then
 			{ date & printf "${input_prefix} run already completed. \
 Skipping.\n"; } >> $pipeline_log
+		elif [[ $1 != "--array" ]] && [[ $num_checks -eq 1 ]]
+		then
+			{ date & printf "${input_prefix} run already completed. \
+Skipping.\n"; } >> $pipeline_log
+		else
+			echo "Error - check inputs to 'pipeliner'." >> $pipeline_log
 		fi
 	else
 		[[ $1 = "--array" ]] && [[ $array_indices ]] && \
-local array_flag="${1}=${array_indices}"
+local array_flag="${1} ${array_indices}"
 		{ date & printf "Beginning ${input_prefix} step.\n"; } >> $pipeline_log
-		wipecheckpoints $input_prefix
-		local jobid=`no_depend $array_flag \
-${scripts_dir}${input_sbatch} "${trailing_args}"`
+#		wipecheckpoints $input_prefix
+		local jobid=`no_depend $array_flag $input_sbatch $trailing_args`
 	fi
 	echo $jobid
 }
@@ -262,7 +266,7 @@ ${scripts_dir}${input_sbatch} "${trailing_args}"`
 # Run pipeline
 # Set array size for working with sample IDs
 array_size=$num_samples
-{ date & printf "Array size set to ${num_samples}.\n"; } >> $pipeline_log
+{ date & printf "Array size set to ${num_samples}.\n"; } > $pipeline_log
 
 # Rename reads and create $samples_file
 input_sbatch=${scripts_dir}rename.sbatch
@@ -274,33 +278,36 @@ then
 	{ date & printf "Checkpoint and $samples_file detected. \
 Skipping ${input_prefix} step.\n";} >> $pipeline_log
 else
-	wipecheckpoints $input_prefix
+#	wipecheckpoints $input_prefix
 	{ date & printf "Renaming: Files in $path_to_raw_reads copied \
 into $samples_dir and renamed.\n"; } >> $pipeline_log 
 #	rename_jobid=`no_depend $input_sbatch \
 #$path_to_raw_reads $samples_dir $samples_file $scripts_dir`
 fi
 
-## Repair FASTQs with BBMap repair.sh
-#dependency=$rename_jobid
-#dependency_prefix=$input_prefix
-#input_sbatch=${scripts_dir}repair.sbatch
-#sleep_time=600
-#repair_jobid=`pipeliner --array $array_size $dependency_prefix 1 \
-#$sleep_time $input_sbatch \
-#$samples_file $samples_dir`
-#
-## FastQC
-## Depend start upon last job step
-#dependency=$repair_jobid
-#dependency_prefix=$input_prefix
-#sleep_time=600
+# Repair FASTQs with BBMap repair.sh
+dependency=$rename_jobid
+dependency_prefix=$input_prefix
+input_sbatch=${scripts_dir}repair.sbatch
+input_prefix=`get_prefix $input_sbatch`
+sleep_time=600
+#repair_jobid=``
+pipeliner --array $array_size $dependency_prefix 1 \
+$sleep_time $input_sbatch \
+$samples_file $samples_dir
+
+# FastQC
+# Depend start upon last job step
+dependency=$repair_jobid
+dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}fastqc.sbatch
 input_prefix=`get_prefix $input_sbatch`
-#fastqc_jobid=`pipeliner --array $array_size $dependency_prefix $array_size \
-#$sleep_time $input_sbatch \
-#$samples_file $samples_dir $qc_dir`
-#
+sleep_time=600
+#fastqc_jobid=``
+pipeliner --array $array_size $dependency_prefix $array_size \
+$sleep_time $input_sbatch \
+$samples_file $samples_dir $qc_dir
+
 #input_prefix=`get_prefix $input_sbatch`
 ## Check for known dependency
 #if [[ $dependency ]]
@@ -354,14 +361,12 @@ dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}trim_galore.sbatch
 input_prefix=`get_prefix $input_sbatch`
 sleep_time=600
-declare -f pipeliner
-echo "pipeliner --array $array_size $dependency_prefix $array_size \
+#trim_galore_jobid=``
+pipeliner --array $array_size $dependency_prefix $array_size \
 $sleep_time $input_sbatch \
-$samples_file $samples_dir $qc_dir $trimmed_dir"
-#trim_galore_jobid=`pipeliner --array $array_size $dependency_prefix $array_size \
-#$sleep_time $input_sbatch \
-#$samples_file $samples_dir $qc_dir $trimmed_dir`
-#
+$samples_file $samples_dir $qc_dir $trimmed_dir
+dependency_size=$array_size
+
 #input_prefix=`get_prefix $input_sbatch`
 #until [[ -f $samples_file ]] && \
 #[[ `checkpoints_exist $dependency_prefix` == "true" ]] && \
@@ -516,29 +521,29 @@ $samples_file $samples_dir $qc_dir $trimmed_dir"
 ##	hisat2_jobid=`no_depend --array $array_size ${scripts_dir}${input_sbatch} \
 ##$genome $samples_file $trimmed_dir $qc_dir $indiv_file`
 #fi
-#
-## Sort IDs in $indiv_file for unique invidual IDs
-#dependency_prefix=$input_prefix
-#until [[ -f $indiv_file ]] && \
-#[[ `checkpoints_exist $dependency_prefix` == "true" ]] && \
-#[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $num_samples ]]
-#do
-#	date
-#	printf "Waiting for completion of $dependency_prefix step.\n"
-#	sleep 1200
-#done
-#if [[ -f $indiv_file ]]
-#then
-#	date
-#	printf "Sorting $indiv_file for unique invidual IDs.\n"
-#	sort -u $indiv_file > sorted_${indiv_file}
-#	mv sorted_${indiv_file} $indiv_file
-#else
-#	date
-#	printf "Error - $indiv_file not detected.\n"
-#	exit 1
-#fi
-#
+
+# Sort IDs in $indiv_file for unique invidual IDs
+dependency_prefix=$input_prefix
+until [[ -f $indiv_file ]] && \
+[[ `checkpoints_exist $dependency_prefix` == "true" ]] && \
+[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $num_samples ]]
+do
+	date
+	printf "Waiting for completion of $dependency_prefix step.\n"
+	sleep 1200
+done
+if [[ -f $indiv_file ]]
+then
+	date
+	printf "Sorting $indiv_file for unique invidual IDs.\n"
+	sort -u $indiv_file > sorted_${indiv_file}
+	mv sorted_${indiv_file} $indiv_file
+else
+	date
+	printf "Error - $indiv_file not detected.\n"
+	exit 1
+fi
+
 ## Run GATK4 MarkDuplicates on all samples
 ## Keep same dependency
 #dependency_prefix=$dependency_prefix
@@ -576,20 +581,20 @@ $samples_file $samples_dir $qc_dir $trimmed_dir"
 ##	mark_dupes_jobid=`no_depend --array $array_size ${scripts_dir}${input_sbatch} \
 ##$genome $samples_file $qc_dir`
 #fi
-#
-## Set new array size for BAM collapse & after = number of individuals
-#if [[ -f $indiv_file ]]
-#then
-#	num_indiv=`cat $indiv_file | wc -l`
-#	array_size=$num_indiv
-#	date
-#	printf "Array size set to ${num_indiv}.\n"
-#else
-#	date
-#	printf "Error - $indiv_file not detected.\n"
-#	exit 1
-#fi
-#
+
+# Set new array size for BAM collapse & after = number of individuals
+if [[ -f $indiv_file ]]
+then
+	num_indiv=`cat $indiv_file | wc -l`
+	array_size=$num_indiv
+	date
+	printf "Array size set to ${num_indiv}.\n"
+else
+	date
+	printf "Error - $indiv_file not detected.\n"
+	exit 1
+fi
+
 ## Collapse BAMs with GATK4 MergeSamFiles
 ## Depend start upon last job step
 #dependency_prefix=$input_prefix
@@ -628,11 +633,16 @@ $samples_file $samples_dir $qc_dir $trimmed_dir"
 ##$genome $indiv_file`
 #fi
 #
-## Run GATK4 HaplotypeCaller
-## Depend start upon last job step
-#dependency_prefix=$input_prefix
-#input_sbatch=haplotype_caller.sbatch
-#input_prefix=`get_prefix $input_sbatch`
+# Run GATK4 HaplotypeCaller
+# Depend start upon last job step
+dependency_prefix=$input_prefix
+input_sbatch=${scripts_dir}haplotype_caller.sbatch
+input_prefix=`get_prefix $input_sbatch`
+sleep_time=600
+pipeliner --array $array_size $dependency_prefix $dependency_size \
+$sleep_time $input_sbatch \
+$genome $indiv_file /scratch/kdeweese/$gvcfs_dir
+dependency_size=$array_size
 #until [[ -f $indiv_file ]] && \
 #[[ `checkpoints_exist $dependency_prefix` == "true" ]] && \
 #[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $num_indiv ]]

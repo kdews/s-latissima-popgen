@@ -4,8 +4,11 @@
 
 genome=$1
 #genome=/scratch2/kdeweese/latissima/popgen_all/hisat2/SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.fasta
-indir=$2
-infile=`ls ${indir}/*am | sed -n ${SLURM_ARRAY_TASK_ID}p`
+id_file=$2
+id=`cat $id_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+indir=$3
+pattern=$4
+infile=`ls ${indir}/*${id}*${pattern}*am`
 #indir=/scratch2/kdeweese/latissima/popgen_all/hisat2
 #indir=/scratch2/kdeweese/latissima/popgen_all/mark_dupes
 #indir=/scratch2/kdeweese/latissima/popgen_all/collapsed_bams
@@ -32,5 +35,5 @@ infile_basename=$(basename -- $infile)
 
 # Run GATK4's ValidateSamFile
 gatk ValidateSamFile -M VERBOSE \
--R $genome -I $infile \
+-I $infile \
 -O ${outdir}/${infile_basename}.validate.verbose

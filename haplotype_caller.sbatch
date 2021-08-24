@@ -9,7 +9,7 @@ genome_base=`echo $genome_basename | sed 's/\..*//g'`
 indiv_file=$2
 indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 indir=collapsed_bams
-outdir=gvcfs
+outdir=$3
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -28,10 +28,11 @@ then
 fi
 
 # Run GATK4's HaplotypeCaller
-gatk HaplotypeCaller -R hisat/${genome_basename_unzip} \
+gatk HaplotypeCaller -ERC GVCF -ploidy 1 \
+-R hisat/${genome_basename_unzip} \
 -I ${indir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
 -O ${outdir}/${indiv_id}_${genome_base}.g.vcf.gz \
---tmp-dir gvcfs_temp
+--tmp-dir ${outdir}/gvcfs_temp
 
 # Checkpoint
 if [[ $? -eq 0 ]]
