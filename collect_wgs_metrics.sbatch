@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --mem=8gb
 #SBATCH --time=05:00:00
+#SBATCH --mem=2gb
 
 prefix=$1 # sbatch filename without file extensions
 indir=$2 # input directory
@@ -8,10 +8,8 @@ outdir=$3 # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-id_file=$5
-id=`cat $id_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-pattern=$6 # SAM/BAM file ending pattern (e.g., .sorted.bam)
-infile=`ls ${indir}/*${id}*${pattern}`
+samples_file=$5
+sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -23,24 +21,23 @@ then
 	exit 1
 fi
 
-# Create output directory
+# Create output directory (if needed)
 if [[ ! -d $outdir ]]
-then
+then    
 	mkdir $outdir
 fi
 
-# Define input file with ID
-infile_basename=$(basename -- $infile)
-
-# Run GATK4's ValidateSamFile in summary mode
-gatk ValidateSamFile -M SUMMARY \
--R $genome -I $infile \
--O ${outdir}/${infile_basename}.validate.summary
+# Run GATK4 CollectAlignmentSummaryMetrics on HISAT2 alignmnets
+gatk CollectWgsMetrics \
+-R $genome \
+-I ${indir}/${sample_id}_${genome_base}.sorted.bam \
+-O ${outdir}/${sample_id}_${genome_base}.collect_wgs.metrics
 
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
-	if [[ -f ${outdir}/${infile_basename}.validate.summary ]]
+	if [[ -f \
+${outdir}/${sample_id}_${genome_base}.collect_wgs.metrics ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
@@ -50,8 +47,8 @@ then
 checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
-		echo "Error - ValidateSamFile summary for BAM \
-$infile not created."
+		echo "Error - WGS Metrics file for BAM \
+${indir}/${sample_id}_${genome_base}.sorted.bam not created."
 		exit 1
 	fi
 else

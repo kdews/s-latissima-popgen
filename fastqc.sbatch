@@ -3,12 +3,13 @@
 #SBATCH --time=08:00:00
 #SBATCH --cpus-per-task=12
 
-samples_file=$1
+prefix=$1 # sbatch filename without file extensions
+indir=$2 # input directory
+outdir=$3 # output directory
+samples_file=$4
 sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.fastq.gz
 reads2=${samples_dir}/${sample_id}_R2.fastq.gz
-outdir=$3
 
 # Create output directory (if needed)
 if [[ ! -d $outdir ]]
@@ -46,7 +47,7 @@ then
 			mkdir checkpoints
 		fi
 		touch \
-checkpoints/fastqc_${SLURM_ARRAY_TASK_ID}.checkpoint
+checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - not all FastQC files \

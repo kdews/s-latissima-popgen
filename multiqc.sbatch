@@ -1,10 +1,11 @@
 #!/bin/bash
-#SBATCH --mem=50gb
-#SBATCH --time=1-0
+#SBATCH --mem=15gb
+#SBATCH --time=01:00:00
 
-qc_dir=$1
+prefix=$1
+qc_dir=$2
 # Optional, to specify directory containing scripts
-scripts_dir=$2/
+scripts_dir=$3
 
 # Load multiqc
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -12,11 +13,18 @@ conda activate multiqc
 multiqc --version
 if [[ $? -ne 0 ]]
 then
-  printf "Error - check MultiQC installation.\n\n"
+	echo "Error - check MultiQC installation."
 fi
 
-multiqc -c ${scripts_dir}multiqc_config.yaml \
+# If input directory exists, run MultiQC
+if [[ -d $qc_dir ]]
+then
+	multiqc -c ${scripts_dir}multiqc_config.yaml \
 -o $qc_dir $qc_dir
+else
+	echo "Error - input directory to MultiQC, \
+${qc_dir}, not found."
+fi
 
 # Checkpoints
 if [[ $? -eq 0 ]]
@@ -27,14 +35,14 @@ then
 		then
 			mkdir checkpoints
 		fi
-		touch checkpoints/multiqc.checkpoint
+		touch checkpoints/${prefix}.checkpoint
 		exit 0
 	else
-		printf "Error - MultiQC report not created.\n"
+		echo "Error - MultiQC report not created."
 		exit 1
 	fi
 else
-	printf "Error - non-zero exit code returned by MultiQC.\n"
+	echo "Error - non-zero exit code returned by MultiQC."
 	exit 1
 fi
 

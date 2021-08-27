@@ -55,9 +55,9 @@ sp:
   hisat2:
     fn: "*.hisat2.summary"
   picard/markdups:
-    fn: "*mark_dupes.metrics"
+    fn: "*.mark_dupes.metrics"
   picard/alignment_metrics:
-    skip: true
+    fn: "*.collect_alignment_summary.metrics"
   picard/basedistributionbycycle:
     skip: true
   picard/gcbias:
@@ -81,21 +81,19 @@ sp:
   picard/rrbs_metrics:
     skip: true
   picard/sam_file_validation:
-    skip: true
+    fn: "*.validate.summary"
   picard/variant_calling_metrics:
     skip: true
   picard/wgs_metrics:
-    skip: true
+    fn: "*.collect_wgs.metrics"
 
 # Change module order
 module_order:
-  - fastqc:
-      name: "FastQC (raw)"
-      info: "This section of the report shows FastQC results BEFORE adapter trimming."
-      anchor: "fastqc_raw"
-      path_filters:
-        - "*_R1_fastqc.zip"
-  - cutadapt
+  - picard/markdups
+  - picard/alignment_metrics
+  - picard/wgs_metrics
+  - hisat2
+  - picard/sam_file_validation
   - fastqc:
       name: "FastQC (trimmed)"
       anchor: "fastqc_trimmed"
@@ -103,5 +101,11 @@ module_order:
       target: ""
       path_filters:
         - "*val_1_fastqc.zip"
-  - hisat2
-  - picard
+  - cutadapt
+  - fastqc:
+      name: "FastQC (raw)"
+      info: "This section of the report shows FastQC results BEFORE adapter trimming."
+      anchor: "fastqc_raw"
+      path_filters:
+        - "*_R1_fastqc.zip"
+

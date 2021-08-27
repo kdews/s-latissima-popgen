@@ -2,14 +2,16 @@
 #SBATCH --mem=50g
 #SBATCH --time=5-0
 
-genome=$1
+prefix=$1 # sbatch filename without file extensions
+indir=$2 # input directory
+outdir=$3 # output directory
+genome=$4
 genome_basename=$(basename -- $genome)
-genome_basename_unzip=`echo $genome_basename | sed 's/\.gz//g'`
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-indiv_file=$2
-indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-indir=gvcfs
-outdir=genotyped_vcfs
+interval_chunk_dir=$5
+intervals_file=$6
+intervals_file_chunk=${interval_chunk_dir}/${SLURM_ARRAY_TASK_ID}_${intervals_file}
+tempdir=${outdir}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -17,7 +19,7 @@ conda activate gatk4
 gatk --version
 if [[ $? -ne 0 ]]
 then
-	printf "Error - check GATK4 installation.\n"
+	echo "Error - check GATK4 installation."
 	exit 1
 fi
 
@@ -27,28 +29,32 @@ then
 	mkdir $outdir
 fi
 
+# CombineGVCFs option
+# -V ${indir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.g.vcf.gz \
 # Run GATK4's GenotypeGVCFs
-gatk GenotypeGVCFs -R hisat/${genome_basename_unzip} \
--V ${indir}/${indiv_id}_${genome_base}.g.vcf.gz \
--O ${outdir}/${indiv_id}_${genome_base}.vcf.gz \
---tmp-dir genotyped_gvcfs_temp
+# GenomicsDBImport option
+gatk GenotypeGVCFs -R ${genome} \
+-V genomicsdbimport/interval_${SLURM_ARRAY_TASK_ID} \
+-L ${intervals_file_chunk} \
+-O ${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.vcf.gz \
+--tmp-dir ${prefix}_temp
 
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
 	if [[ -f \
-${outdir}/${indiv_id}_${genome_base}.vcf.gz ]]
+${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.vcf.gz ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
 			mkdir checkpoints
 		fi
 		touch \
-checkpoints/genotype_gvcfs_${SLURM_ARRAY_TASK_ID}.checkpoint
+checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - VCF file \
-${outdir}/${indiv_id}_${genome_base}.vcf.gz \
+${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.vcf.gz \
 not created.\n"
 		exit 1
 	fi

@@ -1,15 +1,17 @@
 #!/bin/bash
-#SBATCH --mem=50g
-#SBATCH --time=5-0
+#SBATCH --mem=5g
+#SBTACH --cpus-per-task=12
+#SBATCH --time=10:00:00
 
-genome=$1
+prefix=$1 # sbatch filename without file extensions
+indir=$2 # input directory
+outdir=$3 # output directory
+genome=$4
 genome_basename=$(basename -- $genome)
-genome_basename_unzip=`echo $genome_basename | sed 's/\.gz//g'`
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-indiv_file=$2
+indiv_file=$5
 indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-indir=collapsed_bams
-outdir=$3
+tempdir=${outdir}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -21,18 +23,22 @@ then
 	exit 1
 fi
 
-# Create output directory
+# Create output and temp directories
 if [[ ! -d $outdir ]]
 then
 	mkdir $outdir
 fi
+if [[ ! -d $tempdir ]]
+then
+	mkdir $tempdir
+fi
 
 # Run GATK4's HaplotypeCaller
 gatk HaplotypeCaller -ERC GVCF -ploidy 1 \
--R hisat/${genome_basename_unzip} \
+-R ${genome} \
 -I ${indir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
 -O ${outdir}/${indiv_id}_${genome_base}.g.vcf.gz \
---tmp-dir ${outdir}/gvcfs_temp
+--tmp-dir $tempdir
 
 # Checkpoint
 if [[ $? -eq 0 ]]
@@ -45,7 +51,7 @@ ${outdir}/${indiv_id}_${genome_base}.g.vcf.gz ]]
 			mkdir checkpoints
 		fi
 		touch \
-checkpoints/haploytpe_caller_${SLURM_ARRAY_TASK_ID}.checkpoint
+checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - gVCF file \

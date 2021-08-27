@@ -3,7 +3,10 @@
 #SBATCH --time=05:00:00
 #SBATCH --cpus-per-task=15
 
-samples_file=$1
+prefix=$1 # sbatch filename without file extensions
+indir=$2 # input directory
+outdir=$3 # output directory
+samples_file=$4
 sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
 samples_dir=$2
 reads1=${samples_dir}/${sample_id}_R1.repaired.fastq.gz
@@ -46,7 +49,7 @@ for ${sample_id}.\n"
 			mkdir checkpoints
 		fi
 		touch \
-checkpoints/trim_galore_${SLURM_ARRAY_TASK_ID}.checkpoint
+checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
 		printf "Error - not all reads trimmed \

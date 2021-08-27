@@ -1,7 +1,6 @@
 #!/bin/bash
-#SBATCH --mem=50g
-#SBATCH --time=5-0
-#SBATCH --cpus-per-task=2
+#SBATCH --mem=100g
+#SBATCH --time=2-0
 
 prefix=$1 # sbatch filename without file extensions
 indir=$2 # input directory
@@ -9,8 +8,9 @@ outdir=$3 # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-indiv_file=$5
-indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+interval_chunk_dir=$5
+intervals_file=$6
+intervals_file_chunk=${interval_chunk_dir}/${SLURM_ARRAY_TASK_ID}_${intervals_file}
 tempdir=${outdir}_tmp
 
 # Load GATK4
@@ -26,32 +26,34 @@ fi
 # Create output and temp directories
 if [[ ! -d $outdir ]]
 then
-	mkdir $outdir
+        mkdir $outdir
 fi
 if [[ ! -d $tempdir ]]
 then
-	mkdir $tempdir
+        mkdir $tempdir
 fi
 
-# Generate array to hold list of BAMs associated with 
-# the $indiv_id and the required "-I" flag before each
-f=`ls ${indir}/*_${indiv_id}_*.sorted.marked.bam`
-input_bams=(${f// / })
-cnt=${#input_bams[@]}
+# Generate array to hold list of all gVCFs
+# and the required "-V" flag before each
+f=`ls ${indir}/*.g.vcf.gz`
+input_gvcfs=(${f// / })
+cnt=${#input_gvcfs[@]}
 for ((i=0;i<cnt;i++)); do
-    input_bams[i]="-I ${input_bams[i]}"
+    input_gvcfs[i]="-V ${input_gvcfs[i]}"
 done
 
-# Run GATK4's MergeSamFiles
-gatk MergeSamFiles ${input_bams[*]} \
--O ${outdir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
---USE_THREADING --TMP_DIR $tempdir
+# Run GATK4's CombineGVCFs
+gatk CombineGVCFs --java-options "-Xms75g -Xmx75g"\
+-R $genome \
+${input_gvcfs[*]} -L $intervals_file_chunk \
+-O ${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.g.vcf.gz \
+--tmp-dir $tempdir
 
 # Checkpoint
 if [[ $? -eq 0 ]]
 then
 	if [[ -f \
-${outdir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam ]]
+${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.g.vcf.gz ]]
 	then
 		if [[ ! -d checkpoints ]]
 		then
@@ -61,9 +63,9 @@ ${outdir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam ]]
 checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
-		printf "Error - merged BAM file \
-${outdir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
-not created.\n"
+		echo "Error - gVCF file \
+${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.g.vcf.gz \
+not created."
 		exit 1
 	fi
 else

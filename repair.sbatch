@@ -2,11 +2,14 @@
 #SBATCH --mem=500mb
 #SBATCH --time=01:00:00
 
-samples_file=$1
-samples_dir=`realpath $2`
+prefix=$1 # sbatch filename without file extensions
+indir=$2 # input directory
+outdir=$3 # output directory
+logdir=${prefix}_logs # log directory
+samples_file=$4
 sample_id=`cat $samples_file | sort -u | sed -n ${SLURM_ARRAY_TASK_ID}p`
-reads1=${samples_dir}/${sample_id}_R1.fastq.gz
-reads2=${samples_dir}/${sample_id}_R2.fastq.gz
+reads1=${indir}/${sample_id}_R1.fastq.gz
+reads2=${indir}/${sample_id}_R2.fastq.gz
 
 # Load repair.sh (in BBMap package)
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -14,7 +17,7 @@ conda activate bbmap
 repair.sh --version
 if [[ $? -ne 0 ]]
 then
-  printf "Error - check BBMap installation.\n"
+	echo "Error - check BBMap installation."
 fi
 
 printf "Repairing 2 read files associated with \
@@ -28,9 +31,9 @@ reads2_suffix=`echo $(basename -- $reads2) | sed "s/$reads2_prefix//"`
 
 # Run BBMap repair.sh
 repair.sh in=$reads1 in2=$reads2 \
-out=${samples_dir}/${reads1_prefix}.repaired${reads1_suffix} \
-out2=${samples_dir}/${reads2_prefix}.repaired${reads2_suffix} \
-outs=${samples_dir}/${sample_id}.singles${reads1_suffix}
+out=${outdir}/${reads1_prefix}.repaired${reads1_suffix} \
+out2=${outdir}/${reads2_prefix}.repaired${reads2_suffix} \
+outs=${outdir}/${sample_id}.singles${reads1_suffix}
 
 # Checkpoint
 if [[ $? -eq 0 ]]
