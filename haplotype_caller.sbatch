@@ -9,9 +9,10 @@ outdir=$3 # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
+genome_path=`dirname $genome`
 indiv_file=$5
 indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-tempdir=${outdir}_tmp
+tempdir=${prefix}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -35,7 +36,7 @@ fi
 
 # Run GATK4's HaplotypeCaller
 gatk HaplotypeCaller -ERC GVCF -ploidy 1 \
--R ${genome} \
+-R ${genome} --sequence-dictionary ${genome_path}/${genome_base}.dict \
 -I ${indir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
 -O ${outdir}/${indiv_id}_${genome_base}.g.vcf.gz \
 --tmp-dir $tempdir

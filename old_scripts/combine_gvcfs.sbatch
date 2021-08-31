@@ -11,7 +11,7 @@ genome_base=`echo $genome_basename | sed 's/\..*//g'`
 interval_chunk_dir=$5
 intervals_file=$6
 intervals_file_chunk=${interval_chunk_dir}/${SLURM_ARRAY_TASK_ID}_${intervals_file}
-tempdir=${outdir}_tmp
+tempdir=${prefix}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh

@@ -8,6 +8,7 @@ outdir=$3 # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
+genome_path=`dirname $genome`
 scatter=$5
 
 # Load GATK4
@@ -22,9 +23,8 @@ fi
 
 # Run GATK4's GenomicsDBImport
 gatk SplitIntervals \
--R $genome \
--O $outdir \
---scatter-count $scatter \
+-R $genome --sequence-dictionary ${genome_path}/${genome_base}.dict \
+-O $outdir --scatter-count $scatter \
 --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION
 
 # Checkpoint

@@ -8,12 +8,17 @@ outdir=$3 # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-id_file=$5
-id=`cat $id_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-pattern=$6 # SAM/BAM file ending pattern (e.g., .sorted.bam)
-# Note: input filenames must have an underscore following the unique ID
-infile=`ls ${indir}/*${id}_*${pattern}`
+infile_list=$5
+infile=`cat $infile_list | sed -n ${SLURM_ARRAY_TASK_ID}p`
 infile_basename=$(basename -- $infile)
+# Set $filetype_flag to -gvcf, if needed
+gvcf_patterns=("g.vcf" "gvcf")
+for i in "${gvcf_patterns[@]}"
+do 
+	[[ `echo $infile | grep $i` ]] && filetype_flag="-gvcf" \
+&& echo "Treating $infile as gVCF file."
+done
+[[ -z $filetype_flag ]] &&  echo "Treating $infile as VCF file."
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -31,10 +36,12 @@ then
 	mkdir $outdir
 fi
 
-# Run GATK4's ValidateSamFile in summary mode
-gatk ValidateSamFile -M SUMMARY \
--R $genome -I $infile \
--O ${outdir}/${infile_basename}.validate.summary
+# Run GATK4's ValidateVariants
+gatk ValidateVariants $filetype_flag \
+--validation-type-to-exclude ALLELES \
+-R $genome \
+-V $infile > \
+${outdir}/${infile_basename}.validate.summary 2>&1
 
 # Checkpoint
 if [[ $? -eq 0 ]]
@@ -49,7 +56,7 @@ then
 checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
-		echo "Error - ValidateSamFile summary for BAM \
+		echo "Error - ValidateVariant summary for \
 $infile not created."
 		exit 1
 	fi

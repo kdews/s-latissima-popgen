@@ -1,17 +1,19 @@
 #!/bin/bash
-#SBATCH --mem=50g
-#SBATCH --time=5-0
+#SBATCH --mem=17g
+#SBATCH --time=04:00:00
 
 prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
+indir=$2 # parent input directory containing subdirectories
+# subdirectory for this job step
+indir=${indir}/interval_${SLURM_ARRAY_TASK_ID}
 outdir=$3 # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-interval_chunk_dir=$5
-intervals_file=$6
-intervals_file_chunk=${interval_chunk_dir}/${SLURM_ARRAY_TASK_ID}_${intervals_file}
-tempdir=${outdir}_tmp
+genome_path=`dirname $genome`
+intervals_file=$5
+interval=`cat $intervals_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+tempdir=${prefix}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -28,16 +30,21 @@ if [[ ! -d $outdir ]]
 then
 	mkdir $outdir
 fi
+if [[ ! -d $tempdir ]]
+then
+	mkdir $tempdir
+fi
 
-# CombineGVCFs option
-# -V ${indir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.g.vcf.gz \
 # Run GATK4's GenotypeGVCFs
 # GenomicsDBImport option
-gatk GenotypeGVCFs -R ${genome} \
--V genomicsdbimport/interval_${SLURM_ARRAY_TASK_ID} \
--L ${intervals_file_chunk} \
+gatk GenotypeGVCFs \
+--java-options "-Xms14g -Xmx14g" \
+-R $genome \
+--sequence-dictionary ${genome_path}/${genome_base}.dict \
+-L $intervals_list \
+-V gendb://${indir} \
 -O ${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.vcf.gz \
---tmp-dir ${prefix}_temp
+--tmp-dir $tempdir
 
 # Checkpoint
 if [[ $? -eq 0 ]]
@@ -49,17 +56,17 @@ ${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.vcf.gz ]]
 		then
 			mkdir checkpoints
 		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
+#		touch \
+#checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
 		exit 0
 	else
-		printf "Error - VCF file \
+		echo "Error - VCF file \
 ${outdir}/interval_${SLURM_ARRAY_TASK_ID}_${genome_base}.vcf.gz \
-not created.\n"
+not created."
 		exit 1
 	fi
 else
-	printf "Error - non-zero exit code returned by GATK4.\n"
+	echo "Error - non-zero exit code returned by GATK4."
 	exit 1
 fi
 

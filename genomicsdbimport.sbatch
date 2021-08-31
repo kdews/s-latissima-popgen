@@ -1,23 +1,24 @@
 #!/bin/bash
 #SBATCH --mem=50g
-#SBATCH --time=10:00:00
+#SBATCH --time=1-0
 
 prefix=$1 # sbatch filename without file extensions
 indir=$2 # input directory
-outdir=$prefix # parent output directory containing subdirectories
+outdir=$3 # parent output directory containing subdirectories
 if [[ ! -d $outdir ]]
 then
         mkdir $outdir
 fi
 # subdirectory for this job step
-outdir=${prefix}/interval_${SLURM_ARRAY_TASK_ID} # output directory
+outdir=${outdir}/interval_${SLURM_ARRAY_TASK_ID} # output directory
 genome=$4
 genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
-interval_chunk_dir=$5
-intervals_file=$6
-intervals_file_chunk=${interval_chunk_dir}/${SLURM_ARRAY_TASK_ID}_${intervals_file}
-tempdir=${outdir}_tmp
+genome_path=`dirname $genome`
+intervals_file=$5
+interval=`cat $intervals_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+gvcf_list=$6
+tempdir=${prefix}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
@@ -35,19 +36,22 @@ then
         mkdir $tempdir
 fi
 
-# Generate array to hold list all g.vcfs
-# and the required "-V" flag before each
-f=`ls ${indir}/*.g.vcf.gz`
-input_gvcfs=(${f// / })
-cnt=${#input_gvcfs[@]}
-for ((i=0;i<cnt;i++)); do
-    input_gvcfs[i]="-V ${input_gvcfs[i]}"
-done
+## Generate array to hold list all g.vcfs
+## and the required "-V" flag before each
+#f=`ls ${indir}/*.g.vcf.gz`
+#input_gvcfs=(${f// / })
+#cnt=${#input_gvcfs[@]}
+#for ((i=0;i<cnt;i++)); do
+#    input_gvcfs[i]="-V ${input_gvcfs[i]}"
+#done
 
 # Run GATK4's GenomicsDBImport
-gatk GenomicsDBImport --java-options "-Xms39g -Xmx39g" \
+gatk GenomicsDBImport \
+--java-options "-Xms39g -Xmx39g" \
 -R $genome \
-${input_gvcfs[*]} -L $intervals_file_chunk \
+--sequence-dictionary ${genome_path}/${genome_base}.dict \
+-L $interval \
+-V $gvcf_list \
 --genomicsdb-workspace-path $outdir \
 --tmp-dir $tempdir
 

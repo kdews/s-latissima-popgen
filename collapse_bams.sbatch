@@ -11,7 +11,7 @@ genome_basename=$(basename -- $genome)
 genome_base=`echo $genome_basename | sed 's/\..*//g'`
 indiv_file=$5
 indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-tempdir=${outdir}_tmp
+tempdir=${prefix}_tmp
 
 # Load GATK4
 source ~/bin/anaconda3/etc/profile.d/conda.sh
