@@ -21,7 +21,7 @@ then
 	exit 1
 fi
 
-# Run GATK4's GenomicsDBImport
+# Run GATK4's SplitIntervals
 gatk SplitIntervals \
 -R $genome --sequence-dictionary ${genome_path}/${genome_base}.dict \
 -O $outdir --scatter-count $scatter \

@@ -11,7 +11,7 @@
 # Help message
 if [[ $1 = "-h" ]] || [[ $1 = "--help" ]]
 then
-	printf "
+	printf "%s\n" "\
 ----------------------WELCOME TO VARIANT CALLING PIPELINER----------------------
 
 Usage: 
@@ -715,7 +715,7 @@ $genome $indiv_file $pattern`
 dependency_size=$array_size
 printspace
 
-# Index collapsed BAMs for GATK HaplotypeCaller
+# Index collapsed BAMs for GATK4 HaplotypeCaller
 # Depend start upon last job step
 dependency=$jobid
 dependency_prefix=$input_prefix
