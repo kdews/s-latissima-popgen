@@ -828,7 +828,7 @@ $pipeline_log
 ls ${split_intervals_dir}/*list > $intervals_file
 printspace
 
-# Run GATK GenomicsDBImport
+# Run GATK4 GenomicsDBImport
 # Depend start upon last job step
 dependency=$jobid
 dependency_prefix=$input_prefix
