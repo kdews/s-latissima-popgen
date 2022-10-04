@@ -422,11 +422,11 @@ dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}repair.sbatch
 input_prefix=$(get_prefix $input_sbatch)
-jobid=`pipeliner --array $array_size \
+jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $samples_dir $samples_dir \
-$samples_file`
+$samples_file)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -435,18 +435,18 @@ printspace
 # Depend start upon last job step
 dependency_prefix=$input_prefix
 input_prefix=og_reads_deleted
-if [[ `checkpoints_exist $dependency_prefix` = "true" ]] && \
-[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq \
+if [[ $(checkpoints_exist $dependency_prefix) = "true" ]] && \
+[[ $(ls checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq \
 $dependency_size ]]
 then
-	if [[ `checkpoints_exist $input_prefix` = "true" ]]
+	if [[ $(checkpoints_exist $input_prefix) = "true" ]]
 	then
 		{ date; echo "Original reads already removed. Skipping."; } >> \
 $pipeline_log
 	else	
 		{ date; echo "Removing original renamed reads \
 to conserve memory before next steps."; } >> $pipeline_log
-		for sample_id in `cat $samples_file`
+		for sample_id in $(cat $samples_file)
 		do
 			if \
 [[ -f ${samples_dir}/${sample_id}_R1.fastq.gz ]] && \
@@ -473,23 +473,23 @@ printspace
 dependency=$jobid
 dependency_prefix=$dependency_prefix
 input_sbatch=${scripts_dir}fastqc.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 # Check for dependency jobid
 if [[ $dependency ]]
 then
 	{ date; echo "Running $input_prefix following completion of \
 $dependency_prefix step (jobid ${dependency})."; } >> $pipeline_log
-	jobid=`depend --array $array_size \
+	jobid=$(depend --array $array_size \
 $input_sbatch $input_prefix $dependency \
 $samples_dir $qc_dir \
-$samples_file`
+$samples_file)
 else
 	# If dependency is finished running, verify its checkpoint
-	jobid=`pipeliner --array $array_size \
+	jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $samples_dir $qc_dir \
-$samples_file`
+$samples_file)
 fi
 # Set dependency size for next step
 dependency_size=$array_size
