@@ -165,7 +165,7 @@ get_prefix () {
 	echo $filename
 }
 # Define function to make a log directory from an input string
-# (e.g., prefix), but only if it doesn't already exist
+# (e.g., prefix) only if it doesn't already exist
 make_logdir () {
 	# Create log directory (if needed) from given prefix
 	local logdir=${1}_logs
