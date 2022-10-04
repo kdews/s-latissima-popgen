@@ -128,7 +128,7 @@ if [[ $scripts_dir ]]
 then
 	[[ -d $scripts_dir ]] && echo "Searching for scripts in ${scripts_dir}\
 ..." >> $pipeline_log && scripts_dir=$scripts_dir/ || echo "Searching for \
-scripts in current directory: `pwd`..." >> $pipeline_log
+scripts in current directory: $(pwd)..." >> $pipeline_log
 fi
 # If output directory is specified and exists, change to output directory
 if [[ $outdir ]]
@@ -139,7 +139,7 @@ ${outdir} doesn't exist. Exiting." >> $pipeline_log; exit 1; }
 fi
 # Specific to pipeline
 # Assumes paired end FASTQs
-num_samples=`expr $(ls ${path_to_raw_reads}/*fastq.gz | wc -l) / 2`
+num_samples=$(expr $(ls ${path_to_raw_reads}/*fastq.gz | wc -l) / 2)
 indexer_dir=indexer
 samples_dir=wgs
 samples_file=${indexer_dir}/samples_file.txt
@@ -182,7 +182,7 @@ no_depend () {
 	then
 		# Inputs
 		local array_size=$2
-		if [[ `echo $array_size | sed 's/,/ /g' | wc -w` -eq 1 ]]
+		if [[ $(echo "$array_size" | sed 's/,/ /g' | wc -w) -eq 1 ]]
 		then
 			array_size="1-${array_size}"
 		fi
@@ -190,11 +190,11 @@ no_depend () {
 		local prefix=$4
 		local trailing_args="${@:5}"
 		# Create log directory named after prefix
-		local logdir=`make_logdir $prefix`
+		local logdir=$(make_logdir $prefix)
 		# Job submission
-#		local jobid=`sbatch -p $partition -J ${prefix} --parsable \
+#		local jobid=$(sbatch -p $partition -J ${prefix} --parsable \
 #--array=${array_size} -o ${logdir}/%x_%a.out $sbatch_file $prefix \
-#$trailing_args`
+#$trailing_args)
 		echo "sbatch -p $partition -J ${prefix} --parsable \
 --array=${array_size} -o ${logdir}/%x_%a.out $sbatch_file $prefix \
 $trailing_args" >> $pipeline_log
@@ -204,7 +204,7 @@ $trailing_args" >> $pipeline_log
 		local prefix=$2
 		local trailing_args="${@:3}"
 		# Create log directory named after prefix
-		local logdir=`make_logdir $prefix`
+		local logdir=$(make_logdir $prefix)
 		# Job submission
 #		local jobid=`sbatch -p $partition -J ${prefix} --parsable -o \
 # ${logdir}/%x.out $sbatch_file $prefix $trailing_args`
