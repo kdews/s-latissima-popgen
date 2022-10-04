@@ -115,9 +115,9 @@ outdir=$5 # optional, output directory for entire pipeline
 # If genome file exists, change name to realpath
 [[ $genome ]] && genome=$(realpath $genome) && [[ -f $genome ]] || \
 { echo "Genome file $genome not detected." >> $pipeline_log; exit 1; }
-genome_basename=$(basename -- $genome)
-genome_basename_unzip=`echo $genome_basename | sed 's/\.gz//g'`
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
+genome_basename=$(basename -- "$genome")
+genome_basename_unzip=$(echo "$genome_basename" | sed 's/\.gz//g')
+genome_base=$(echo "$genome_basename" | sed 's/\..*//g')
 # If path to raw reads exists, change name to realpath
 [[ $path_to_raw_reads ]] && path_to_raw_reads=$(realpath $path_to_raw_reads) \
 && [[ -d $path_to_raw_reads ]] || { echo "Reads directory $path_to_raw_reads \
@@ -162,7 +162,7 @@ printspace () { printf "\n" >> $pipeline_log; }
 get_prefix () {
 	local filename=$(basename -- $1)
 	local filename="${filename%.*}"
-	echo $filename
+	echo "$filename"
 }
 # Define function to make a log directory from an input string
 # (e.g., prefix) only if it doesn't already exist
