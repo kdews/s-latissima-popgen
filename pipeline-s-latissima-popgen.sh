@@ -499,12 +499,12 @@ printspace
 # Depend start upon last job step
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}trim_galore.sbatch
-input_prefix=`get_prefix $input_sbatch`
-jobid=`pipeliner --array $array_size \
+input_prefix=$(get_prefix $input_sbatch)
+jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $samples_dir $qc_dir \
-$samples_file $trimmed_dir`
+$samples_file $trimmed_dir)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -513,12 +513,12 @@ printspace
 # Depend start upon last job step
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}build_hisat2.sbatch
-input_prefix=`get_prefix $input_sbatch`
-jobid=`pipeliner \
+input_prefix=$(get_prefix $input_sbatch)
+jobid=$(pipeliner \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $bams_dir \
-$genome`
+$genome)
 dependency_size=1
 printspace
 
@@ -540,12 +540,12 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}hisat2.sbatch
-input_prefix=`get_prefix $input_sbatch`
-jobid=`pipeliner --array $array_size \
+input_prefix=$(get_prefix $input_sbatch)
+jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $trimmed_dir $bams_dir \
-$genome $samples_file $qc_dir $indiv_file`
+$genome $samples_file $qc_dir $indiv_file)
 dependency_size=$array_size
 # Set dependency size for next step
 dependency_size=$array_size
@@ -579,7 +579,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}prep_ref.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $bams_dir \
@@ -593,7 +593,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}validate_sams.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 pattern=.sorted.bam
 iteration=1
 input_prefix=${input_prefix}_${iteration}
@@ -612,7 +612,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}collect_alignment_summary_metrics.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -627,7 +627,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}collect_wgs_metrics.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -639,7 +639,7 @@ $genome $samples_file`
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}mark_dupes.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -654,7 +654,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}validate_sams.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 pattern=.marked.sorted.bam
 iteration=2
 input_prefix=${input_prefix}_${iteration}
@@ -684,7 +684,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}collapse_bams.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -699,7 +699,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}validate_sams.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 pattern=.merged.marked.sorted.bam
 iteration=3
 input_prefix=${input_prefix}_${iteration}
@@ -717,7 +717,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}index_bams.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -732,7 +732,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}haplotype_caller.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -778,7 +778,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}validate_variants.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 iteration=1
 input_prefix=${input_prefix}_${iteration}
 jobid=`pipeliner --array $array_size \
@@ -796,7 +796,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}split_intervals.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $split_intervals_dir $split_intervals_dir \
@@ -830,7 +830,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}genomicsdbimport.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -845,7 +845,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}genotype_gvcfs.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -891,7 +891,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}sort_vcf.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
@@ -936,7 +936,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}validate_variants.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 iteration=2
 input_prefix=${input_prefix}_${iteration}
 jobid=`pipeliner --array $array_size \
@@ -953,7 +953,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}merge_vcfs.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $vcfs_dir $genome $vcf_list`
@@ -966,7 +966,7 @@ printspace
 #dependency=$jobid
 #dependency_prefix=$input_prefix
 #input_sbatch=${scripts_dir}multiqc.sbatch
-#input_prefix=`get_prefix $input_sbatch`
+#input_prefix=$(get_prefix $input_sbatch)
 #if [[ $dependency ]]
 #then
 #	{ date; echo "Running $input_prefix following completion of \
