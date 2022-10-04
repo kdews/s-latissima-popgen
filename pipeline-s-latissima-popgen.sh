@@ -277,7 +277,7 @@ function."; } >> $pipeline_log
 # Define function to check for and remove a set of 
 # similarly named checkpoint files
 wipecheckpoints () {
-	if [[ `checkpoints_exist $1` = "true" ]]
+	if [[ $(checkpoints_exist $1) = "true" ]]
         then
                 rm checkpoints/${1}*.checkpoint
         fi
@@ -287,10 +287,10 @@ wipecheckpoints () {
 missingcheckpoints () {
 	# $1 is input_prefix
 	# $2 is array_size
-	if [[ `checkpoints_exist $1` = "true" ]]
+	if [[ $(checkpoints_exist $1) = "true" ]]
 	then
-		local total=`seq 1 1 "$2"`
-		for i in `echo "$total"`
+		local total=$(seq 1 1 "$2")
+		for i in $(echo "$total")
 		do
 			[[ -f checkpoints/${1}_${i}.checkpoint ]] || printf \
 "${i},"
@@ -324,15 +324,15 @@ pipeliner () {
 	[[ "$@" ]] || { echo "Error - no input to pipeliner. Exiting..." >> \
 $pipeline_log ; exit 1; }
 	echo "pipeliner $@" >> $pipeline_log
-	until [[ `checkpoints_exist $dependency_prefix` = "true" ]] && \
-[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq \
+	until [[ $(checkpoints_exist $dependency_prefix) = "true" ]] && \
+[[ $(ls checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq \
 $dependency_size ]]
 	do
 		{ date; echo "Waiting for completion of $dependency_prefix \
 step."; } >> $pipeline_log
 		sleep $sleep_time
 	done
-	if [[ `checkpoints_exist $input_prefix` = "true" ]]
+	if [[ $(checkpoints_exist $input_prefix) = "true" ]]
 	then
 		local num_checks=`ls \
 checkpoints/${input_prefix}*.checkpoint | wc -l`
