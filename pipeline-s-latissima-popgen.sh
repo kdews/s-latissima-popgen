@@ -808,15 +808,15 @@ printspace
 # Set array size to number of split interval lists created
 dependency_prefix=$input_prefix
 until [[ -d $split_intervals_dir ]] && \
-[[ `checkpoints_exist $dependency_prefix` = "true" ]] && \
-[[ `ls checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq \
+[[ $(checkpoints_exist $dependency_prefix) = "true" ]] && \
+[[ $(ls checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq \
 $dependency_size ]]
 do
 	{ date; echo "Waiting for completion of $dependency_prefix step."; } \
 >> $pipeline_log
 	sleep $sleep_time
 done
-array_size=$(( `ls ${split_intervals_dir}/*list | wc -l` ))
+array_size=$(( $(ls ${split_intervals_dir}/*list | wc -l) ))
 { date; printf "Array size set to number of split interval lists ($array_size) 
 created by split_intervals step (not necessarily equal to scatter=${scatter} 
 because --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION).\n"; } >> \
@@ -835,7 +835,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $gvcfs_dir $genomicsdbimport_dir \
-$genome $intervals_file $gvcf_list`
+$genome $intervals_file $gvcf_list)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -850,7 +850,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $genomicsdbimport_dir $vcfs_dir \
-$genome`
+$genome)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -858,23 +858,23 @@ printspace
 # Create list of GenotypeGVCFs VCFs
 dependency_prefix=$input_prefix
 until [[ -d $vcfs_dir ]] && \
-[[ `checkpoints_exist $dependency_prefix` = "true" ]] && [[ `ls \
-checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $dependency_size ]]
+[[ $(checkpoints_exist $dependency_prefix) = "true" ]] && [[ $(ls \
+checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq $dependency_size ]]
 do
 	{ date; echo "Waiting for completion of $dependency_prefix step."; } \
 >> $pipeline_log
 	sleep $sleep_time
 done
-num_vcfs=`ls ${vcfs_dir}/*${genome_base}.vcf.gz | wc -l`
+num_vcfs=$(ls ${vcfs_dir}/*${genome_base}.vcf.gz | wc -l)
 if [[ $num_vcfs -eq $array_size ]]
 then
 	{ date; echo "Creating $vcf_list of $num_vcfs files."; } >> \
 $pipeline_log
 	ls $vcfs_dir/*${genome_base}.vcf.gz > $vcf_list
-	if [[ `cat $vcf_list | wc -l` -ne $array_size ]]
+	if [[ $(cat $vcf_list | wc -l) -ne $array_size ]]
 	then
 		{ date; echo "Error - incorrect number of files \
-(`cat $vcf_list | wc -l`/${array_size}) in ${vcf_list}. Exiting..."; } >> \
+($(cat $vcf_list | wc -l)/${array_size}) in ${vcf_list}. Exiting..."; } >> \
 $pipeline_log
 		exit 1
 	fi
