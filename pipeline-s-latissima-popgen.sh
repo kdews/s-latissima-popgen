@@ -670,7 +670,7 @@ printspace
 # Set new array size to number of individuals
 if [[ -f $indiv_file ]]
 then
-	num_indiv=`cat $indiv_file | wc -l`
+	num_indiv=$(cat $indiv_file | wc -l)
 	array_size=$num_indiv
 	{ date; echo "Array size set to ${array_size}."; } >> $pipeline_log
 else
@@ -689,7 +689,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $bams_dir \
-$genome $indiv_file`
+$genome $indiv_file)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -707,7 +707,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $qc_dir \
-$genome $indiv_file $pattern`
+$genome $indiv_file $pattern)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -722,7 +722,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $bams_dir \
-$genome $indiv_file`
+$genome $indiv_file)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -737,7 +737,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $gvcfs_dir \
-$genome $indiv_file`
+$genome $indiv_file)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -745,23 +745,23 @@ printspace
 # Create file to index HaplotypeCaller gVCFs
 dependency_prefix=$input_prefix
 until [[ -d $gvcfs_dir ]] && \
-[[ `checkpoints_exist $dependency_prefix` = "true" ]] && [[ `ls \
-checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $dependency_size ]]
+[[ $checkpoints_exist $dependency_prefix) = "true" ]] && [[ $(ls \
+checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq $dependency_size ]]
 do
 	{ date; echo "Waiting for completion of $dependency_prefix step."; } \
 >> $pipeline_log
 	sleep $sleep_time
 done
-num_gvcfs=`ls ${gvcfs_dir}/*g.vcf.gz | wc -l`
+num_gvcfs=$(ls ${gvcfs_dir}/*g.vcf.gz | wc -l)
 if [[ $num_gvcfs -eq $array_size ]]
 then
 	{ date; echo "Creating $gvcf_list of $num_gvcfs files."; } >> \
 $pipeline_log
 	ls $gvcfs_dir/*g.vcf.gz > $gvcf_list
-	if [[ `cat $gvcf_list | wc -l` -ne $array_size ]]
+	if [[ $(cat $gvcf_list | wc -l) -ne $array_size ]]
 	then
 		{ date; echo "Error - incorrect number of files in $gvcf_list \
-(`cat $gvcf_list | wc -l`/${array_size}). Exiting..."; } >> \
+($(cat $gvcf_list | wc -l)/${array_size}). Exiting..."; } >> \
 $pipeline_log
 		exit 1
 	fi
@@ -785,7 +785,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $gvcfs_dir $qc_dir \
-$genome $gvcf_list`
+$genome $gvcf_list)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -800,7 +800,7 @@ input_prefix=$(get_prefix $input_sbatch)
 jobid=$(pipeliner $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $split_intervals_dir $split_intervals_dir \
-$genome $scatter`
+$genome $scatter)
 # Set dependency size for next step
 dependency_size=1
 printspace
