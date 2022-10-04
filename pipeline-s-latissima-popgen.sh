@@ -554,8 +554,8 @@ printspace
 # Sort IDs in $indiv_file for unique invidual IDs
 dependency_prefix=$input_prefix
 until [[ -f $indiv_file ]] && \
-[[ `checkpoints_exist $dependency_prefix` = "true" ]] && [[ `ls \
-checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $dependency_size ]]
+[[ $(checkpoints_exist $dependency_prefix) = "true" ]] && [[ $(ls \
+checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq $dependency_size ]]
 do
 	{ date; echo "Waiting for completion of \
 $dependency_prefix step."; } >> $pipeline_log
@@ -580,10 +580,10 @@ dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}prep_ref.sbatch
 input_prefix=$(get_prefix $input_sbatch)
-jobid=`pipeliner $dependency_prefix $dependency_size \
+jobid=$(pipeliner $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $bams_dir $bams_dir \
-$genome`
+$genome)
 # Set dependency size for next step
 dependency_size=1
 printspace
@@ -971,9 +971,9 @@ printspace
 #then
 #	{ date; echo "Running $input_prefix following completion of \
 #$dependency_prefix step (jobid ${dependency})."; } >> $pipeline_log
-#	jobid=`depend $input_sbatch $input_prefix \
+#	jobid=$(depend $input_sbatch $input_prefix \
 #$dependency \
-#$qc_dir $scripts_dir`
+#$qc_dir $scripts_dir)
 #fi
 #jobid=`pipeliner $dependency_prefix $dependency_size \
 #$sleep_time $input_sbatch $input_prefix \
