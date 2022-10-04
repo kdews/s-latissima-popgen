@@ -160,7 +160,7 @@ vcfs_dir=vcfs
 printspace () { printf "\n" >> $pipeline_log; }
 # Define function to return prefix of input file
 get_prefix () {
-	local filename=`basename -- $1`
+	local filename=$(basename -- $1)
 	local filename="${filename%.*}"
 	echo $filename
 }
