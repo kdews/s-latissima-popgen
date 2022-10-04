@@ -206,8 +206,8 @@ $trailing_args" >> $pipeline_log
 		# Create log directory named after prefix
 		local logdir=$(make_logdir $prefix)
 		# Job submission
-#		local jobid=`sbatch -p $partition -J ${prefix} --parsable -o \
-# ${logdir}/%x.out $sbatch_file $prefix $trailing_args`
+#		local jobid=$(sbatch -p $partition -J ${prefix} --parsable -o \
+# ${logdir}/%x.out $sbatch_file $prefix $trailing_args)
 		echo "sbatch -p $partition -J ${prefix} \
 --parsable -o ${logdir}/%x.out $sbatch_file $prefix $trailing_args" \
 >> $pipeline_log
@@ -222,7 +222,7 @@ depend () {
 	then
 		# Inputs
 		local array_size=$2
-		if [[ `echo $array_size | sed 's/,/ /g' | wc -w` -eq 1 ]]
+		if [[ $(echo "$array_size" | sed 's/,/ /g' | wc -w) -eq 1 ]]
 		then
 			array_size="1-${array_size}"
 		fi
@@ -231,11 +231,11 @@ depend () {
 		local dep_jobid=$5
 		local trailing_args="${@:6}"
 		# Create log directory named after prefix
-		local logdir=`make_logdir $prefix`
+		local logdir=$(make_logdir $prefix)
 		# Job submission
-#		local jobid=`sbatch -p $partition -J ${prefix} --parsable \
+#		local jobid=$(sbatch -p $partition -J ${prefix} --parsable \
 #--array=${array_size} -o ${logdir}/%x_%a.out --dependency=afterok:${dep_jobid} \
-#$sbatch_file $prefix $trailing_args`
+#$sbatch_file $prefix $trailing_args)
 		echo "sbatch -p $partition -J ${prefix} --parsable \
 --array=${array_size} -o ${logdir}/%x_%a.out --dependency=afterok:${dep_jobid} \
 $sbatch_file $prefix $trailing_args" >> $pipeline_log
@@ -246,11 +246,11 @@ $sbatch_file $prefix $trailing_args" >> $pipeline_log
 		local dep_jobid=$3
 		local trailing_args="${@:4}"
 		# Create log directory named after prefix
-		local logdir=`make_logdir $prefix`
+		local logdir=$(make_logdir $prefix)
 		# Job submission
-#		local jobid=`sbatch -p $partition -J ${prefix} --parsable -o \
+#		local jobid=$(sbatch -p $partition -J ${prefix} --parsable -o \
 #${logdir}/%x.out --dependency=afterok:${dep_jobid} $sbatch_file $prefix \
-#$trailing_args`
+#$trailing_args)
 		echo "sbatch -p $partition -J ${prefix} --parsable -o \
 ${logdir}/%x.out --dependency=afterok:${dep_jobid} $sbatch_file $prefix \
 $trailing_args" >> $pipeline_log
