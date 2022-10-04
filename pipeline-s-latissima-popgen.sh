@@ -896,7 +896,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $vcfs_dir $qc_dir \
-$genome $vcf_list`
+$genome $vcf_list)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -904,23 +904,23 @@ printspace
 # Overwrite index of VCF files with sorted index
 # Depend start upon last job step
 dependency_prefix=$input_prefix
-until [[ `checkpoints_exist $dependency_prefix` = "true" ]] && [[ `ls \
-checkpoints/${dependency_prefix}*.checkpoint | wc -l` -eq $dependency_size ]]
+until [[ $(checkpoints_exist $dependency_prefix) = "true" ]] && [[ $(ls \
+checkpoints/${dependency_prefix}*.checkpoint | wc -l) -eq $dependency_size ]]
 do
 	{ date; echo "Waiting for completion of $dependency_prefix step."; } \
 >> $pipeline_log
 	sleep $sleep_time
 done
-num_vcfs=`ls ${vcfs_dir}/*${genome_base}.sorted.vcf.gz | wc -l`                                      
+num_vcfs=$(ls ${vcfs_dir}/*${genome_base}.sorted.vcf.gz | wc -l)                                      
 if [[ $num_vcfs -eq $array_size ]]                                              
 then
 	{ date; echo "Creating $vcf_list of $num_vcfs files."; } \
 >> $pipeline_log
 	ls $vcfs_dir/*${genome_base}.sorted.vcf.gz > $vcf_list
-	if [[ `cat $vcf_list | wc -l` -ne $array_size ]]
+	if [[ $(cat $vcf_list | wc -l) -ne $array_size ]]
 	then
 		{ date; echo "Error - incorrect number of files \
-(`cat $vcf_list | wc -l`/${array_size}) in ${vcf_list}. Exiting..."; } >> \
+($(cat $vcf_list | wc -l)/${array_size}) in ${vcf_list}. Exiting..."; } >> \
 $pipeline_log
 		exit 1
 	fi
@@ -943,7 +943,7 @@ jobid=$(pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
 $vcfs_dir $qc_dir \
-$genome $vcf_list`
+$genome $vcf_list)
 # Set dependency size for next step
 dependency_size=$array_size
 printspace
@@ -956,7 +956,7 @@ input_sbatch=${scripts_dir}merge_vcfs.sbatch
 input_prefix=$(get_prefix $input_sbatch)
 jobid=$(pipeliner $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
-$vcfs_dir $genome $vcf_list`
+$vcfs_dir $genome $vcf_list)
 # Set dependency size for next step
 dependency_size=1
 printspace
