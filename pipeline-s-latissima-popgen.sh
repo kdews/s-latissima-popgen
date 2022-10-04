@@ -334,21 +334,21 @@ step."; } >> $pipeline_log
 	done
 	if [[ $(checkpoints_exist $input_prefix) = "true" ]]
 	then
-		local num_checks=`ls \
-checkpoints/${input_prefix}*.checkpoint | wc -l`
+		local num_checks=$(ls \
+checkpoints/${input_prefix}*.checkpoint | wc -l)
 		{ date; echo "${num_checks} checkpoint(s) detected for \
 ${input_prefix}. Validating..."; } >> $pipeline_log
 		if [[ $1 = "--array" ]] && [[ $array_indices ]] && \
 [[ $num_checks -ne $array_indices ]] 
 		then
-			local array_flag="${1} `missingcheckpoints \
-$input_prefix $array_indices`"
+			local array_flag="${1} $(missingcheckpoints \
+$input_prefix $array_indices)"
 		echo "Error detected in ${input_prefix} checkpoint. Restarting \
 step at checkpoint." >> $pipeline_log
 		echo "Submitting job array indices: $array_indices" \
 >> $pipeline_log
-		local jobid=`no_depend $array_flag $input_sbatch $input_prefix \
-$trailing_args`
+		local jobid=$(no_depend $array_flag $input_sbatch $input_prefix \
+$trailing_args)
 		elif [[ $num_checks -eq $array_indices ]]
 		then
 			echo "${input_prefix} run already \
@@ -365,8 +365,8 @@ Skipping." >> $pipeline_log
 		[[ $1 = "--array" ]] && [[ $array_indices ]] && local \
 array_flag="${1} ${array_indices}"
 		echo "Beginning ${input_prefix} step." >> $pipeline_log
-		local jobid=`no_depend $array_flag $input_sbatch \
-$input_prefix $trailing_args`
+		local jobid=$(no_depend $array_flag $input_sbatch \
+$input_prefix $trailing_args)
 	fi
 	echo $jobid
 }
@@ -397,10 +397,10 @@ printspace
 
 # Rename reads and create $samples_file
 input_sbatch=${scripts_dir}rename.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 # Before running, check if run has already succeeded
 if [[ -f $samples_file ]] && \
-[[ `checkpoints_exist $input_prefix` = "true" ]]
+[[ $(checkpoints_exist $input_prefix) = "true" ]]
 then
 	{ date; echo "Checkpoint and $samples_file detected. Skipping \
 ${input_prefix} step."; } >> $pipeline_log
@@ -408,9 +408,9 @@ else
 	wipecheckpoints $input_prefix
 	{ date; echo "Renaming: Files in $path_to_raw_reads copied into \
 $samples_dir and renamed."; } >> $pipeline_log 
-	jobid=`no_depend $input_sbatch $input_prefix \
+	jobid=$(no_depend $input_sbatch $input_prefix \
 $path_to_raw_reads $samples_dir \
-$samples_file $scripts_dir`
+$samples_file $scripts_dir)
 fi
 # Set dependency size for next step
 dependency_size=1
@@ -421,7 +421,7 @@ printspace
 dependency=$jobid
 dependency_prefix=$input_prefix
 input_sbatch=${scripts_dir}repair.sbatch
-input_prefix=`get_prefix $input_sbatch`
+input_prefix=$(get_prefix $input_sbatch)
 jobid=`pipeliner --array $array_size \
 $dependency_prefix $dependency_size \
 $sleep_time $input_sbatch $input_prefix \
