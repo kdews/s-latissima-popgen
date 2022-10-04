@@ -167,8 +167,9 @@ get_prefix () {
 # Define function to make a log directory from an input string
 # (e.g., prefix), but only if it doesn't already exist
 make_logdir () {
-	local logdir=${1}_logs
 	# Create log directory (if needed)
+	local logdir=${1}_logs
+	mkdir -p "$logdir"
 	if [[ ! -d $logdir ]]
 	then
 		mkdir $logdir
