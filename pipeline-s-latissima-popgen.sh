@@ -104,14 +104,19 @@ fi
 
 # Define global variables
 # Master log file
-pipeline_log=queen.log
+pipeline_log="queen.log"
 # User defined
-genome=/project/noujdine_61/kdeweese/latissima/Assembly/Assembled_scaffolds__masked_/SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.fasta.gz
-path_to_raw_reads=/project/noujdine_61/kdeweese/latissima/all_wgs_OG_names
-partition=cegs
-scripts_dir=s-latissima-popgen # optional, directory containing scripts
-#scripts_dir=$4
-outdir=$5 # optional, output directory for entire pipeline
+genome="$1"
+# genome=/project/noujdine_61/kdeweese/latissima/Assembly/Assembled_scaffolds__masked_/SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.fasta.gz
+path_to_raw_reads="$2"
+# path_to_raw_reads=/project/noujdine_61/kdeweese/latissima/all_wgs_OG_names
+partition="$3"
+# partition=cegs
+# Optional, directory containing scripts
+scripts_dir="$4"
+# scripts_dir=s-latissima-popgen
+# Optional, output directory for entire pipeline
+outdir="$5"
 # If genome file exists, change name to realpath
 [[ $genome ]] && genome=$(realpath $genome) && [[ -f $genome ]] || \
 { echo "Genome file $genome not detected." >> $pipeline_log; exit 1; }
@@ -370,7 +375,6 @@ $input_prefix $trailing_args)
 	fi
 	echo $jobid
 }
-
 
 # Run pipeline
 # Set array size for working with sample IDs
