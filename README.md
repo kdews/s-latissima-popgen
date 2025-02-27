@@ -8,102 +8,93 @@ sbatch pipeline_template.sh [options] <path/to/reference/genome> <path/to/dir/co
 
 Options:
   -h/--help                      print this usage message
-
-Note: Sourced SBATCH files named with convention: <prefix>.sbatch 
 ```
 
 ## Pipeline steps
 ### Prepare and QC raw reads
-1. Rename reads and create $samples_file
-    - Before running, check if run has already succeeded.
-    - Set dependency size for next step.
-2. Repair FASTQs with BBMap's repair.sh
-    - Depend start upon last job step.
-    - Set dependency size for next step.
+1. Rename reads and create list of sample IDs ([rename.sbatch](rename.sbatch))
+2. Repair FASTQs with [BBMap's repair.sh](https://github.com/BioInfoTools/BBMap/blob/master/sh/repair.sh) ([repair.sbatch](repair.sbatch))
 3. Remove original renamed reads to conserve memory before next steps
-    - Depend start upon last job step.
-4. Run FastQC on raw reads
-    - Keep previous dependency.
-    - Check for dependency jobid.
-    - Set dependency size for next step.
-5. Quality and adapter trimming
-    - Depend start upon last job step.
-    - Set dependency size for next step.
+```
+for sample_id in $(cat $samples_file)
+do
+  if [[ -f ${samples_dir}/${sample_id}_R1.fastq.gz ]] && [[ -f ${samples_dir}/${sample_id}_R2.fastq.gz ]] && [[ -f ${trimmed_dir}/${sample_id}_R1.repaired.fastq.gz ]] && [[ -f ${trimmed_dir}/${sample_id}_R2.repaired.fastq.gz ]]
+  then
+    rm ${samples_dir}/${sample_id}_R1.fastq.gz
+    rm ${samples_dir}/${sample_id}_R2.fastq.gz
+  fi
+done
+```
+4. Run [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) on raw reads ([fastqc.sbatch](fastqc.sbatch))
+5. Quality- and adapter-trim raw reads with [Trim Galore!](https://www.bioinformatics.babraham.ac.uk/projects/trim_galore/) ([trim_galore.sbatch](trim_galore.sbatch))
 
-### Align reads to genome and QC alignment files
-1. Run HISAT2-build on genome
-    - Depend start upon last job step.
-    - Redefine $genome location after HISAT2-build step.
-2. Run HISAT2 on all samples
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-3. Sort IDs in $indiv_file for unique invidual IDs
-4. Create reference genome dictionary and samtools index of genome for GATK tools
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-5. Run GATK4 ValidateSamFile on HISAT2 alignmnet BAMs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-6. Run GATK4 CollectAlignmentSummaryMetrics on HISAT2 alignmnet BAMs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-7. Run GATK4 CollectWgsMetrics on HISAT2 alignmnet BAMs
-    - Depend start upon last job step.
+### Align reads to genome
+5. Run [HISAT2-build](https://daehwankimlab.github.io/hisat2/manual/) on genome ([build_hisat2.sbatch](build_hisat2.sbatch))
+    - Redefine genome path after HISAT2-build step.
+```
+genome=${bams_dir}/${genome_basename_unzip}
+```
+6. Run [HISAT2](https://daehwankimlab.github.io/hisat2/manual/) on all samples ([hisat2.sbatch](hisat2.sbatch))
+    - Script will iteratively save parsed sample IDs to list of individual IDs (```$indiv_file```).
+7. Filter to keep only unique individaul IDs in list ([]())
+```
+sort -u $indiv_file > ${indiv_file}_sorted
+mv ${indiv_file}_sorted $indiv_file
+```
+8. Create reference genome dictionary and samtools index of genome for GATK tools ([prep_ref.sbatch](prep_ref.sbatch))
+
+### QC alignment files
+9. Run GATK4 ValidateSamFile on HISAT2 alignmnet BAMs ([validate_sams.sbatch](validate_sams.sbatch))
+10. Run GATK4 CollectAlignmentSummaryMetrics on HISAT2 alignmnet BAMs ([collect_alignment_summary_metrics.sbatch](collect_alignment_summary_metrics.sbatch))
+11. Run GATK4 CollectWgsMetrics on HISAT2 alignmnet BAMs ([collect_wgs_metrics.sbatch](collect_wgs_metrics.sbatch))
 
 ### Process and QC alignment files
-1. Run GATK4 MarkDuplicates
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-2. Run GATK4 ValidateSamFile on MarkDuplicate BAMs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-3. Set new array size to number of individuals
-4. Collapse BAMs per sample into BAMs per individual with GATK4 MergeSamFiles
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-5. Run GATK4 ValidateSamFile on MarkDuplicate BAMs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-6. Index collapsed BAMs for GATK4 HaplotypeCaller
-    - Depend start upon last job step.
-    - Set dependency size for next step.
+12. Run GATK4 MarkDuplicates ([mark_dupes.sbatch](mark_dupes.sbatch))
+13. Run GATK4 ValidateSamFile on MarkDuplicate BAMs ([validate_sams.sbatch](validate_sams.sbatch))
+14. Set new array size to number of individuals
+```
+num_indiv=$(cat $indiv_file | wc -l)
+array_size=$num_indiv
+```
+15. Collapse per-sample BAMs into per-individual BAMs with GATK4 MergeSamFiles ([collapse_bams.sbatch](collapse_bams.sbatch))
+16. Run GATK4 ValidateSamFile on per-individual BAMs ([validate_sams.sbatch](validate_sams.sbatch))
+17. Index per-individual BAMs for GATK4 HaplotypeCaller ([index_bams.sbatch](index_bams.sbatch))
 
 ### Genotype and QC alignment files to generate per-sample gVCFs
-1. Run GATK4 HaplotypeCaller
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-2. Create file to index HaplotypeCaller gVCFs
-3. Run GATK4 ValidateVariants on HaplotypeCaller gVCFs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
+18. Run GATK4 HaplotypeCaller ([haplotype_caller.sbatch](haplotype_caller.sbatch))
+19. Create file to index HaplotypeCaller gVCFs
+```
+ls $gvcfs_dir/*g.vcf.gz > $gvcf_list
+```
+20. Run GATK4 ValidateVariants on HaplotypeCaller gVCFs ([validate_variants.sbatch](validate_variants.sbatch))
 
 ### Combine per-sample gVCFs and resplit by genomic region into per-interval gVCFs
-1. Run GATK4 SplitIntervals on genome to produce interval lists in $split_intervals_dir for GenomicsDBImport step
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-2. Set array size to number of split interval lists created
-3. Create file to index split intervals lists
-4. Run GATK4 GenomicsDBImport
-    - Depend start upon last job step.
-    - Set dependency size for next step.
+21. Run GATK4 SplitIntervals on genome to produce interval lists in ```split_intervals/``` for GenomicsDBImport step ([split_intervals.sbatch](split_intervals.sbatch))
+22. Set array size to number of split interval lists created
+```
+array_size=$(( $(ls ${split_intervals_dir}/*list | wc -l) ))
+```
+23. Create file to index split intervals lists
+```
+ls ${split_intervals_dir}/*list > $intervals_file
+```
+24. Run GATK4 GenomicsDBImport ([genomicsdbimport.sbatch](genomicsdbimport.sbatch))
 
 ### Call variants on and QC per-interval gVCFs to generate per-interval VCFs
-1. Run GATK4 GenotypeGVCFs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-2. Create list of per-interval VCFs
-3. Run GATK4 SortVcf on GenotypeGVCFs VCFs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
-4. Overwrite index of VCF files with sorted index
-    - Depend start upon last job step.
-5. Run GATK4 ValidateVariants on GenotypeGVCFs VCFs
-    - Depend start upon last job step.
-    - Set dependency size for next step.
+25. Run GATK4 GenotypeGVCFs ([genotype_gvcfs.sbatch](genotype_gvcfs.sbatch))
+26. Create list of per-interval VCFs
+```
+ls $vcfs_dir/*${genome_base}.vcf.gz > $vcf_list
+```
+27. Run GATK4 SortVcf on GenotypeGVCFs VCFs ([sort_vcf.sbatch](sort_vcf.sbatch))
+28. Overwrite index of VCF files with sorted index
+```
+ls $vcfs_dir/*${genome_base}.sorted.vcf.gz > $vcf_list
+```
+29. Run GATK4 ValidateVariants on GenotypeGVCFs VCFs ([validate_variants.sbatch](validate_variants.sbatch))
 
 ### Merge per-interval VCFs into final VCF
-1. Run GATK4 MergeVcfs
-    - Depend start upon last job step.
+30. Run GATK4 MergeVcfs ([merge_vcfs.sbatch](merge_vcfs.sbatch))
 
 ## Output
 ### Analysis
