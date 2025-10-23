@@ -21,16 +21,13 @@ import subprocess
 ## UniqueID_SampleID_Sequencer_Barcode_Plate_Lane_Read.fastq.gz
 
 # Specify PATH to directory containing input files
-datadir = sys.argv[1]
+og_file = sys.argv[1]
 outdir = sys.argv[2]
-logdir = sys.argv[3]
+rename_key = sys.argv[3]
 
-print('Creating list of all FASTQs in folder...')
-cmd = 'ls ' + datadir + '/*fastq.gz > ' + logdir + '/original_filenames.txt'
-os.system(cmd)    
 print('Renaming...')
-with open(logdir + '/original_filenames.txt','r') as files:
-	with open(logdir + '/rename.log', 'w') as changed_files:
+with open(og_file, 'r') as files:
+	with open(rename_key, 'w') as changed_files:
 		for file in files:
 			file_stripped = os.path.basename(file.strip())
 			file_list = file_stripped.rsplit('_')
@@ -60,14 +57,10 @@ with open(logdir + '/original_filenames.txt','r') as files:
 				lane = file_list[9]
 				read_fq = file_list[10]
 			newname = uniqueid + '_' + sampleid + '_' + sequencer + '_' + barcode + '_' + plate + '_' + lane + '_' + read_fq
-			if os.path.isfile(outdir + '/' + newname):
-				print(newname, 'detected in', outdir, sep=' ')
-				changed_files.write(datadir + '/' + file_stripped + '\t' + outdir + '/' + newname + '\n')
-			else:
-				print('Copying', file_stripped, 'to', newname, sep=' ')
-				cmd = 'cp ' + datadir + '/' + file_stripped + ' ' + outdir + '/' + newname
-				os.system(cmd)
-				changed_files.write(datadir + '/' + file_stripped + '\t' + outdir + '/' + newname + '\n')
+			cmd = 'rsync ' + file.strip() + ' ' + outdir + '/' + newname
+			print(cmd)
+			os.system(cmd)
+			changed_files.write(file + '\t' + outdir + '/' + newname + '\n')
 		changed_files.close()
 	files.close()
 

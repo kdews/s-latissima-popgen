@@ -106,15 +106,15 @@ fi
 # Master log file
 pipeline_log="queen.log"
 # User defined
-genome="$1"
-# genome=/project/noujdine_61/kdeweese/latissima/Assembly/Assembled_scaffolds__masked_/SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.fasta.gz
-path_to_raw_reads="$2"
-# path_to_raw_reads=/project/noujdine_61/kdeweese/latissima/all_wgs_OG_names
-partition="$3"
-# partition=cegs
+# genome="$1"
+genome="/project/noujdine_61/kdeweese/latissima/Assembly/Assembled_scaffolds__masked_/SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.fasta.gz"
+# path_to_raw_reads="$2"
+path_to_raw_reads="/project2/noujdine_61/sugar_kelp_data/all_wgs/"
+# partition="$3"
+partition="gpu"
 # Optional, directory containing scripts
-scripts_dir="$4"
-# scripts_dir=s-latissima-popgen
+# scripts_dir="$4"
+scripts_dir="s-latissima-popgen"
 # Optional, output directory for entire pipeline
 outdir="$5"
 # If genome file exists, change name to realpath
