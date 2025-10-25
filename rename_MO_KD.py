@@ -23,11 +23,11 @@ import subprocess
 # Specify PATH to directory containing input files
 og_file = sys.argv[1]
 outdir = sys.argv[2]
-rename_key = sys.argv[3]
+rsync_list = sys.argv[3]
 
 print('Renaming...')
 with open(og_file, 'r') as files:
-	with open(rename_key, 'w') as changed_files:
+	with open(rsync_list, 'w') as cmd_list:
 		for file in files:
 			file_stripped = os.path.basename(file.strip())
 			file_list = file_stripped.rsplit('_')
@@ -57,10 +57,9 @@ with open(og_file, 'r') as files:
 				lane = file_list[9]
 				read_fq = file_list[10]
 			newname = uniqueid + '_' + sampleid + '_' + sequencer + '_' + barcode + '_' + plate + '_' + lane + '_' + read_fq
-			cmd = 'rsync ' + file.strip() + ' ' + outdir + '/' + newname
-			print(cmd)
-			os.system(cmd)
-			changed_files.write(file + '\t' + outdir + '/' + newname + '\n')
-		changed_files.close()
+			# Write list of rsync commands (-avc verifies file content)
+			cmd = f'rsync -avc {file.strip()} {os.path.join(outdir, newname)}\n'
+			cmd_list.write(cmd)
+		cmd_list.close()
 	files.close()
 
