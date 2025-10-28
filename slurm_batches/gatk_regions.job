@@ -1,0 +1,41 @@
+#!/bin/bash
+
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=32GB
+#SBATCH --time=36:00:00
+#SBATCH --account=noujdine_61
+#SBATCH --partition=main
+
+module purge
+module load gcc/13.3.0
+module load openjdk/21.0.0_35
+module load python/3.13.2
+module load samtools/1.19.2
+module load gatk/4.5.0.0
+
+fres=$1
+lreg=$2
+
+reg=$(awk -v ArrayID=$SLURM_ARRAY_TASK_ID 'NR == ArrayID {print $1}' $lreg)
+
+freg=${fres}/${reg}
+mkdir -p $freg
+
+gvcfs=""
+for path in $(ls ${fres}/../samples/*/*.gz)
+do
+  gvcfs="$gvcfs -V $path"
+done
+
+gatk CombineGVCFs \
+  -R ../../variants/reference/Macpyr2.fa \
+  $gvcfs \
+  -O ${freg}/rcombined.g.vcf.gz \
+  -L $reg
+  
+gatk GenotypeGVCFs \
+   -R ../../variants/reference/Macpyr2.fa \
+   -V ${freg}/rcombined.g.vcf.gz \
+   -O ${freg}/rcombined.vcf.gz

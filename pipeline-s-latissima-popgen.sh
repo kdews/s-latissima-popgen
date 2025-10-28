@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH -p gpu
 #SBATCH --time=3-0
 #SBATCH -J queen
 #SBATCH -o %x.log
@@ -15,8 +14,7 @@ then
 ----------------------WELCOME TO VARIANT CALLING PIPELINER----------------------
 
 Usage: 
-  sbatch pipeline_template.sh [options] <path/to/reference/genome> <path/to/dir/
-containing/FASTQs> <partition> [scripts_dir]
+  bash/sbatch pipeline-s-latissima-popgen.sh [scripts_dir]
 
 Options:
   -h/--help                      print this usage message
@@ -28,9 +26,9 @@ outputs...
 
 Analysis:
   indexer/
-    samples_file.txt             indexes sample IDs
+    samples_list.txt             indexes sample IDs
     individuals_file.txt         indexes individual IDs
-    intervals_file.txt           indexes split interval lists
+    intervals_list.txt           indexes split interval lists
     gvcf.list                    indexes gVCF files 
     vcf.list                     indexes VCF files (in numerical order)
   wgs/                        
@@ -101,33 +99,40 @@ Direct any questions to Kelly DeWeese (kdeweese@mac.com)
     exit 0
 fi
 
-
-# Define global variables
-# Master log file
+# Configure pipeline
+# Main log file
 pipeline_log="queen.log"
-# User defined
-# genome="$1"
-genome="/project2/noujdine_61/kdeweese/latissima/Assembly/Assembled_scaffolds__masked_/SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked.fasta.gz"
-# path_to_raw_reads="$2"
-path_to_raw_reads="/project2/noujdine_61/sugar_kelp_data/all_wgs/"
-# partition="$3"
-partition="gpu"
-# Optional, directory containing scripts
-# scripts_dir="$4"
-scripts_dir="s-latissima-popgen"
-
-# Validate and parse global variables
-# If genome file exists, change name to realpath
-if [[ -f "$genome" ]] 
+# User-defined config file
+config_file="pipeline.conf"
+# Check if scripts directory specified in input to script
+if [[ -n "$1" ]]
 then
-    genome="$(realpath -e "$genome")"
+    scripts_dir="$1"
 else
-    echo "Genome file $genome not detected." >> "$pipeline_log"
+    scripts_dir="s-latissima-popgen"
+fi
+# If scripts directory exists, change to realpath and append '/' to name
+if [[ -d "$scripts_dir" ]]
+then
+    scripts_dir="$(realpath -e "$scripts_dir")"
+    scripts_dir="$scripts_dir/"
+    echo "Path to scripts: ${scripts_dir}..." >> "$pipeline_log"
+    # Prepend scripts path to config filename
+    config_file="$scripts_dir/$config_file"
+else
+    echo "Path to scripts (current directory): $(pwd)" >> "$pipeline_log"
+fi
+# Source config file (if exists)
+if [[ -f "$config_file" ]]
+then
+    echo "Sourcing config file: $config_file"
+    source "$config_file"
+else
+    echo "Error - No config file ($config_file) in scripts path ($scripts_dir)."
     exit 1
 fi
-genome_basename="$(basename "$genome")"
-genome_basename_unzip="${genome_basename%%.gz}"
-genome_base="${genome_basename%%.*}"
+
+# Validate and parse user-defined variables
 # If path to raw reads exists, change name to realpath
 if [[ -d "$path_to_raw_reads" ]]
 then
@@ -136,46 +141,62 @@ else
     echo "Reads directory ($path_to_raw_reads) not detected." >> "$pipeline_log"
     exit 1
 fi
-# If scripts directory is speicified and exists, change to realpath and append 
-# '/' to name
-if [[ "$scripts_dir" ]] && [[ -d "$scripts_dir" ]]
+# If genome file exists, change name to realpath
+if [[ -f "$genome" ]] 
 then
-    scripts_dir="$(realpath -e "$scripts_dir")"
-    scripts_dir="$scripts_dir/"
-    echo "Path to scripts: ${scripts_dir}..." >> "$pipeline_log"
+    genome="$(realpath -e "$genome")"
 else
-    echo "Path to scripts: $(pwd) (current directory)" >> "$pipeline_log"
+    echo "Genome file $genome not detected." >> "$pipeline_log"
+    exit 1
 fi
+# Parse genome filename
+genome_basename="$(basename "$genome")"
+genome_basename_unzip="${genome_basename%%.gz}"
+genome_base="${genome_basename%%.*}"
 
 # Pipeline variables
-# Assumes paired-end FASTQs
+# Count of samples assumes paired-end FASTQs
 num_fastqs="$(find "$path_to_raw_reads" -mindepth 2 -maxdepth 2 \
     -type f -name "*.fastq.gz" -exec realpath -e {} \; | wc -l)"
 num_samples="$(( num_fastqs / 2 ))"
+# Directory to copy reads into
+samples_dir="wgs"
+# Directory to write array-indexed lists (e.g., $samples_list)
 indexer_dir="indexer"
 mkdir -p "$indexer_dir"
-samples_dir="wgs"
-samples_file="$indexer_dir/samples_file.txt"
+# Text file listing sample IDs
+samples_list="$indexer_dir/samples_list.txt"
+# Directory to write QC output
 qc_dir="quality_control"
 mkdir -p "$qc_dir"
+# Directory to write trimmed read files
 trimmed_dir="trimmed_reads"
 mkdir -p "$trimmed_dir"
+# Directory to write BAM files
 bams_dir="bams"
 mkdir -p "$bams_dir"
-indiv_file="$indexer_dir/individuals_file.txt"
+# Text file listing individual IDs
+indiv_list="$indexer_dir/individuals_list.txt"
+# Directory to write gVCFs
 gvcfs_dir="gvcfs"
 mkdir -p "$gvcfs_dir"
+# Directory to write inverval.list files (output of GATK4's SplitIntervals)
 split_intervals_dir="split_intervals"
 mkdir -p "$split_intervals_dir"
 # Number of interval groups to split into for scatter-gather parallelization
-scatter="100"
-intervals_file="intervals_file.txt"
+scatter=100
+# Text file listing interval.list filenames
+intervals_list="$indexer_dir/intervals_list.txt"
+# Text file listing gVCF filenames
 gvcf_list="$indexer_dir/gvcfs.list"
+# Directory to import gVCFs into GenomicsDBs
 genomicsdbimport_dir="genomicsdbimport"
 mkdir -p "$genomicsdbimport_dir"
-vcf_list="$indexer_dir/vcf.list"
+# Directory to write genotyped VCFs
 vcfs_dir="vcfs"
 mkdir -p "$vcfs_dir"
+# Text file listing genotyped VCF filenames
+vcf_list="$indexer_dir/vcf.list"
 
 # Functions
 # Define function to return prefix of input file
@@ -482,15 +503,15 @@ fi
     echo
 } >> "$pipeline_log"
 
-# Rename reads and create $samples_file
+# Rename reads and create $samples_list
 input_sbatch="${scripts_dir}rename.sbatch"
 input_prefix="$(get_prefix "$input_sbatch")"
 # Before running, check if run has already succeeded
-if [[ -f "$samples_file" ]] && [[ -n "$(ls_check "$input_prefix")" ]]
+if [[ -f "$samples_list" ]] && [[ -n "$(ls_check "$input_prefix")" ]]
 then
     {
         date
-        echo "Checkpoint and samples file ($samples_file) detected."
+        echo "Checkpoint and samples file ($samples_list) detected."
         echo "Skipping step: $input_prefix"
     } >> "$pipeline_log"
 else
@@ -501,7 +522,7 @@ else
         echo "Renamed FASTQs will be in: $samples_dir"
     } >> "$pipeline_log" 
     jobid="$(no_depend "$input_sbatch" "$input_prefix" "$path_to_raw_reads" \
-        "$samples_dir" "$samples_file" "$scripts_dir")"
+        "$samples_dir" "$samples_list" "$scripts_dir")"
 fi
 # Set dependency size for next step
 dependency_size=1
@@ -541,7 +562,7 @@ echo >> "$pipeline_log"
 #                 } >> "$pipeline_log"
 #                 exit 1
 #             fi
-#         done < "$samples_file"
+#         done < "$samples_list"
 #         touch "checkpoints/${input_prefix}.checkpoint"
 #     fi
 # fi
@@ -564,543 +585,543 @@ then
     jobid="$(depend --array "$array_size" \
         "$input_sbatch" "$input_prefix" "$dependency" \
         "$samples_dir" "$qc_dir" \
-        "$samples_file")"
+        "$samples_list")"
 else
     # If dependency is finished running, verify its checkpoint
     jobid="$(pipeliner --array "$array_size" \
         "$dependency_prefix" $dependency_size \
         "$sleep_time" "$input_sbatch" "$input_prefix" \
         "$samples_dir" "$qc_dir" \
-        "$samples_file")"
+        "$samples_list")"
 fi
 # Set dependency size for next step
 dependency_size="$array_size"
 echo >> "$pipeline_log"
 
-# # Quality and adapter trimming
-# # Depend start upon last job step
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}trim_galore.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" $dependency_size \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$samples_dir" "$qc_dir" \
-#     "$samples_file" "$trimmed_dir")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Quality and adapter trimming
+# Depend start upon last job step
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}trim_galore.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" $dependency_size \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$samples_dir" "$qc_dir" \
+    "$samples_list" "$trimmed_dir")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run HISAT2-build on genome
-# # Depend start upon last job step
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}build_hisat2.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner \
-#     "$dependency_prefix" $dependency_size \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$bams_dir" \
-#     "$genome")"
-# dependency_size=1
-# echo >> "$pipeline_log"
+# Run HISAT2-build on genome
+# Depend start upon last job step
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}build_hisat2.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner \
+    "$dependency_prefix" $dependency_size \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$bams_dir" \
+    "$genome")"
+dependency_size=1
+echo >> "$pipeline_log"
 
-# # Redefine $genome location after HISAT2-build step
-# if [[ -f "$bams_dir/$genome_basename_unzip" ]]
-# then
-#     genome="$bams_dir/$genome_basename_unzip"
-#     {
-#         date
-#         echo "Genome now being sourced from: $genome"
-#     } >> "$pipeline_log"
-# else
-#     {
-#         date
-#         echo "Error - gunzipped genome not detected in $bams_dir"
-#     } >> "$pipeline_log"
-#     exit 1
-# fi
-# echo >> "$pipeline_log"
+# Redefine $genome location after HISAT2-build step
+if [[ -f "$bams_dir/$genome_basename_unzip" ]]
+then
+    genome="$bams_dir/$genome_basename_unzip"
+    {
+        date
+        echo "Genome now being sourced from: $genome"
+    } >> "$pipeline_log"
+else
+    {
+        date
+        echo "Error - gunzipped genome not detected in $bams_dir"
+    } >> "$pipeline_log"
+    exit 1
+fi
+echo >> "$pipeline_log"
 
-# # Run HISAT2 on all samples
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}hisat2.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$trimmed_dir" "$bams_dir" \
-#     "$genome" "$samples_file" "$qc_dir" "$indiv_file")"
-# dependency_size="$array_size"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run HISAT2 on all samples
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}hisat2.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$trimmed_dir" "$bams_dir" \
+    "$genome" "$samples_list" "$qc_dir" "$indiv_list")"
+dependency_size="$array_size"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Sort IDs in $indiv_file for unique invidual IDs
-# dependency_prefix="$input_prefix"
-# until [[ -f "$indiv_file" ]] && \
-#       [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
-# do
-#     date >> "$pipeline_log"
-#     echo "Waiting for completion of $dependency_prefix step." >> "$pipeline_log"
-#     sleep "$sleep_time"
-# done
-# if [[ -f "$indiv_file" ]]
-# then
-#     date
-#     echo "Sorting $indiv_file for unique invidual IDs." >> "$pipeline_log"
-#     sort -u "$indiv_file" > "${indiv_file}_sorted"
-#     mv "${indiv_file}_sorted" "$indiv_file"
-# else
-#     {
-#         date
-#         echo "Error - invidual ID file ($indiv_file) not detected."
-#     } >> "$pipeline_log"
-#     exit 1
-# fi
-# echo >> "$pipeline_log"
+# Sort IDs in $indiv_list for unique invidual IDs
+dependency_prefix="$input_prefix"
+until [[ -f "$indiv_list" ]] && \
+      [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
+do
+    date >> "$pipeline_log"
+    echo "Waiting for completion of $dependency_prefix step." >> "$pipeline_log"
+    sleep "$sleep_time"
+done
+if [[ -f "$indiv_list" ]]
+then
+    date
+    echo "Sorting $indiv_list for unique invidual IDs." >> "$pipeline_log"
+    sort -u "$indiv_list" > "${indiv_list}_sorted"
+    mv "${indiv_list}_sorted" "$indiv_list"
+else
+    {
+        date
+        echo "Error - invidual ID file ($indiv_list) not detected."
+    } >> "$pipeline_log"
+    exit 1
+fi
+echo >> "$pipeline_log"
 
-# # Create reference genome dictionary and 
-# # samtools index of genome for GATK tools
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}prep_ref.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$bams_dir" \
-#     "$genome")"
-# # Set dependency size for next step
-# dependency_size=1
-# echo >> "$pipeline_log"
+# Create reference genome dictionary and 
+# samtools index of genome for GATK tools
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}prep_ref.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$bams_dir" \
+    "$genome")"
+# Set dependency size for next step
+dependency_size=1
+echo >> "$pipeline_log"
 
-# # Run GATK4 ValidateSamFile on HISAT2 alignmnet BAMs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}validate_sams.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# pattern=".sorted.bam"
-# iteration=1
-# input_prefix="${input_prefix}_${iteration}"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$qc_dir" \
-#     "$genome" "$samples_file" "$pattern")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 ValidateSamFile on HISAT2 alignmnet BAMs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}validate_sams.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+pattern=".sorted.bam"
+iteration=1
+input_prefix="${input_prefix}_${iteration}"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$qc_dir" \
+    "$genome" "$samples_list" "$pattern")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 CollectAlignmentSummaryMetrics 
-# # on HISAT2 alignmnet BAMs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}collect_alignment_summary_metrics.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$qc_dir" \
-#     "$genome" "$samples_file")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 CollectAlignmentSummaryMetrics 
+# on HISAT2 alignmnet BAMs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}collect_alignment_summary_metrics.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$qc_dir" \
+    "$genome" "$samples_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 CollectWgsMetrics on HISAT2 alignmnet BAMs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}collect_wgs_metrics.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$qc_dir" \
-#     "$genome" "$samples_file")"
-# echo >> "$pipeline_log"
+# Run GATK4 CollectWgsMetrics on HISAT2 alignmnet BAMs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}collect_wgs_metrics.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$qc_dir" \
+    "$genome" "$samples_list")"
+echo >> "$pipeline_log"
 
-# # Run GATK4 MarkDuplicates
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}mark_dupes.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$bams_dir" \
-#     "$genome" "$samples_file" "$qc_dir")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 MarkDuplicates
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}mark_dupes.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$bams_dir" \
+    "$genome" "$samples_list" "$qc_dir")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 ValidateSamFile on MarkDuplicate BAMs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}validate_sams.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# pattern=".marked.sorted.bam"
-# iteration=2
-# input_prefix="${input_prefix}_${iteration}"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$qc_dir" \
-#     "$genome" "$samples_file" "$pattern")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 ValidateSamFile on MarkDuplicate BAMs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}validate_sams.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+pattern=".marked.sorted.bam"
+iteration=2
+input_prefix="${input_prefix}_${iteration}"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$qc_dir" \
+    "$genome" "$samples_list" "$pattern")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Set new array size to number of individuals
-# if [[ -f "$indiv_file" ]]
-# then
-#     num_indiv="$(wc -l < "$indiv_file")"
-#     array_size="$num_indiv"
-#     {
-#         date
-#         echo "Array size set to ${array_size}."
-#     } >> "$pipeline_log"
-# else
-#     { 
-#         date
-#         echo "Error - invidual ID file ($indiv_file) not detected."
-#     } >> "$pipeline_log"
-#     exit 1
-# fi
-# echo >> "$pipeline_log"
+# Set new array size to number of individuals
+if [[ -f "$indiv_list" ]]
+then
+    num_indiv="$(wc -l < "$indiv_list")"
+    array_size="$num_indiv"
+    {
+        date
+        echo "Array size set to ${array_size}."
+    } >> "$pipeline_log"
+else
+    { 
+        date
+        echo "Error - invidual ID file ($indiv_list) not detected."
+    } >> "$pipeline_log"
+    exit 1
+fi
+echo >> "$pipeline_log"
 
-# # Collapse BAMs per sample into BAMs per individual with GATK4 MergeSamFiles
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}collapse_bams.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$bams_dir" \
-#     "$genome" "$indiv_file")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Collapse BAMs per sample into BAMs per individual with GATK4 MergeSamFiles
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}collapse_bams.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$bams_dir" \
+    "$genome" "$indiv_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 ValidateSamFile on MarkDuplicate BAMs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}validate_sams.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# pattern=".merged.marked.sorted.bam"
-# iteration=3
-# input_prefix="${input_prefix}_${iteration}"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$qc_dir" \
-#     "$genome" "$indiv_file" "$pattern")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 ValidateSamFile on MarkDuplicate BAMs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}validate_sams.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+pattern=".merged.marked.sorted.bam"
+iteration=3
+input_prefix="${input_prefix}_${iteration}"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$qc_dir" \
+    "$genome" "$indiv_list" "$pattern")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Index collapsed BAMs for GATK4 HaplotypeCaller
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}index_bams.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$bams_dir" \
-#     "$genome" "$indiv_file")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Index collapsed BAMs for GATK4 HaplotypeCaller
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}index_bams.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$bams_dir" \
+    "$genome" "$indiv_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 HaplotypeCaller
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}haplotype_caller.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$bams_dir" "$gvcfs_dir" \
-#     "$genome" "$indiv_file")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 HaplotypeCaller
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}haplotype_caller.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$bams_dir" "$gvcfs_dir" \
+    "$genome" "$indiv_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Create file to index HaplotypeCaller gVCFs
-# dependency_prefix="$input_prefix"
-# until [[ -d "$gvcfs_dir" ]] && \
-#       [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
-# do
-#     date >> "$pipeline_log"
-#     echo "Waiting for completion of $dependency_prefix step." >> "$pipeline_log"
-#     sleep "$sleep_time"
-# done
-# num_gvcfs="$(find "$gvcfs_dir" -type f -name "*.g.vcf.gz" | wc -l)"
-# if [[ "$num_gvcfs" -eq "$array_size" ]]
-# then
-#     {
-#         date
-#         echo "Creating $gvcf_list of $num_gvcfs files."
-#     } >> "$pipeline_log"
-#     find "$gvcfs_dir" -type f -name "*.g.vcf.gz" > "$gvcf_list"
-#     num_gvcfs_list="$(wc -l < "$gvcf_list")"
-#     if [[ $num_gvcfs_list -ne $array_size ]]
-#     then
-#         {
-#             date
-#             echo "Error - incorrect # files ($num_gvcfs_list/$array_size) in $gvcf_list"
-#             echo "Exiting..."
-#         } >> "$pipeline_log"
-#         exit 1
-#     fi
-# else
-#     {
-#         date
-#         echo "Error - incorrect # files ($num_gvcfs/$array_size) in $gvcfs_dir"
-#         echo "$gvcf_list not created. Exiting..."
-#     } >> "$pipeline_log"
-#     exit 1
-# fi
-# echo >> "$pipeline_log"
+# Create file to index HaplotypeCaller gVCFs
+dependency_prefix="$input_prefix"
+until [[ -d "$gvcfs_dir" ]] && \
+      [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
+do
+    date >> "$pipeline_log"
+    echo "Waiting for completion of $dependency_prefix step." >> "$pipeline_log"
+    sleep "$sleep_time"
+done
+num_gvcfs="$(find "$gvcfs_dir" -type f -name "*.g.vcf.gz" | wc -l)"
+if [[ "$num_gvcfs" -eq "$array_size" ]]
+then
+    {
+        date
+        echo "Creating $gvcf_list of $num_gvcfs files."
+    } >> "$pipeline_log"
+    find "$gvcfs_dir" -type f -name "*.g.vcf.gz" > "$gvcf_list"
+    num_gvcfs_list="$(wc -l < "$gvcf_list")"
+    if [[ $num_gvcfs_list -ne $array_size ]]
+    then
+        {
+            date
+            echo "Error - incorrect # files ($num_gvcfs_list/$array_size) in $gvcf_list"
+            echo "Exiting..."
+        } >> "$pipeline_log"
+        exit 1
+    fi
+else
+    {
+        date
+        echo "Error - incorrect # files ($num_gvcfs/$array_size) in $gvcfs_dir"
+        echo "$gvcf_list not created. Exiting..."
+    } >> "$pipeline_log"
+    exit 1
+fi
+echo >> "$pipeline_log"
 
-# # Run GATK4 ValidateVariants on HaplotypeCaller gVCFs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}validate_variants.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# iteration=1
-# input_prefix="${input_prefix}_${iteration}"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$gvcfs_dir" "$qc_dir" \
-#     "$genome" "$gvcf_list")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 ValidateVariants on HaplotypeCaller gVCFs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}validate_variants.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+iteration=1
+input_prefix="${input_prefix}_${iteration}"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$gvcfs_dir" "$qc_dir" \
+    "$genome" "$gvcf_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 SplitIntervals on genome to produce interval 
-# # lists in $split_intervals_dir for CombineGVCFs step
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}split_intervals.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$split_intervals_dir" "$split_intervals_dir" \
-#     "$genome" "$scatter")"
-# # Set dependency size for next step
-# dependency_size=1
-# echo >> "$pipeline_log"
+# Run GATK4 SplitIntervals on genome to produce interval 
+# lists in $split_intervals_dir for CombineGVCFs step
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}split_intervals.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$split_intervals_dir" "$split_intervals_dir" \
+    "$genome" "$scatter")"
+# Set dependency size for next step
+dependency_size=1
+echo >> "$pipeline_log"
 
-# # Set array size to number of split interval lists created
-# dependency_prefix="$input_prefix"
-# until [[ -d "$split_intervals_dir" ]] && \
-#       [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
-# do
-#     {
-#         date
-#         echo "Waiting for completion of $dependency_prefix step."
-#     } >> "$pipeline_log"
-#     sleep "$sleep_time"
-# done
-# array_size="$(find "$split_intervals_dir" -type f -name "*.list" | wc -l)"
-# {
-#     date
-#     echo "Array size set to number of split interval lists ($array_size) created
-#     by split_intervals step (not necessarily equal to scatter=$scatter because
-# --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION)."
-# } >> "$pipeline_log"
-# # Create file to index split intervals lists
-# find "$split_intervals_dir" -type f -name "*.list" > "$intervals_file"
-# echo >> "$pipeline_log"
+# Set array size to number of split interval lists created
+dependency_prefix="$input_prefix"
+until [[ -d "$split_intervals_dir" ]] && \
+      [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
+do
+    {
+        date
+        echo "Waiting for completion of $dependency_prefix step."
+    } >> "$pipeline_log"
+    sleep "$sleep_time"
+done
+array_size="$(find "$split_intervals_dir" -type f -name "*.list" | wc -l)"
+{
+    date
+    echo "Array size set to number of split interval lists ($array_size) created
+    by split_intervals step (not necessarily equal to scatter=$scatter because
+--subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION)."
+} >> "$pipeline_log"
+# Create file to index split intervals lists
+find "$split_intervals_dir" -type f -name "*.list" > "$intervals_list"
+echo >> "$pipeline_log"
 
-# # Run GATK4 GenomicsDBImport
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}genomicsdbimport.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$gvcfs_dir" "$genomicsdbimport_dir" \
-#     "$genome" "$intervals_file" "$gvcf_list")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 GenomicsDBImport
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}genomicsdbimport.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$gvcfs_dir" "$genomicsdbimport_dir" \
+    "$genome" "$intervals_list" "$gvcf_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 GenotypeGVCFs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}genotype_gvcfs.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$genomicsdbimport_dir" "$vcfs_dir" \
-#     "$genome")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 GenotypeGVCFs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}genotype_gvcfs.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$genomicsdbimport_dir" "$vcfs_dir" \
+    "$genome")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Create list of GenotypeGVCFs VCFs
-# dependency_prefix="$input_prefix"
-# until [[ -d "$vcfs_dir" ]] && \
-#       [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
-# do
-#     {
-#         date
-#         echo "Waiting for completion of $dependency_prefix step."
-#     } >> "$pipeline_log"
-#     sleep "$sleep_time"
-# done
-# num_vcfs="$(find $vcfs_dir -type f -name "*${genome_base}.vcf.gz" | wc -l)"
-# if [[ "$num_vcfs" -eq "$array_size" ]]
-# then
-#     {
-#         date
-#         echo "Creating $vcf_list of $num_vcfs files."
-#     } >> "$pipeline_log"
-#     find $vcfs_dir -type f -name "*${genome_base}.vcf.gz" > "$vcf_list"
-#     num_vcfs_list="$(wc -l < "$vcf_list")"
-#     if [[ "$num_vcfs_list" -ne "$array_size" ]]
-#     then
+# Create list of GenotypeGVCFs VCFs
+dependency_prefix="$input_prefix"
+until [[ -d "$vcfs_dir" ]] && \
+      [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
+do
+    {
+        date
+        echo "Waiting for completion of $dependency_prefix step."
+    } >> "$pipeline_log"
+    sleep "$sleep_time"
+done
+num_vcfs="$(find $vcfs_dir -type f -name "*${genome_base}.vcf.gz" | wc -l)"
+if [[ "$num_vcfs" -eq "$array_size" ]]
+then
+    {
+        date
+        echo "Creating $vcf_list of $num_vcfs files."
+    } >> "$pipeline_log"
+    find $vcfs_dir -type f -name "*${genome_base}.vcf.gz" > "$vcf_list"
+    num_vcfs_list="$(wc -l < "$vcf_list")"
+    if [[ "$num_vcfs_list" -ne "$array_size" ]]
+    then
         
-#         {
-#             date
-#             echo "Error - incorrect # files ($num_vcfs_list/$array_size) in $vcf_list" 
-#             echo "Exiting..."
-#         } >> "$pipeline_log"
-#         exit 1
-#     fi
-# else
-#     {
-#         date
-#         echo "Error - incorrect # files ($num_vcfs/$array_size) in $vcfs_dir"
-#         echo "$vcf_list not updated. Exiting..."
-#     } >> "$pipeline_log"
-#     exit 1
-# fi
-# echo >> "$pipeline_log"
+        {
+            date
+            echo "Error - incorrect # files ($num_vcfs_list/$array_size) in $vcf_list" 
+            echo "Exiting..."
+        } >> "$pipeline_log"
+        exit 1
+    fi
+else
+    {
+        date
+        echo "Error - incorrect # files ($num_vcfs/$array_size) in $vcfs_dir"
+        echo "$vcf_list not updated. Exiting..."
+    } >> "$pipeline_log"
+    exit 1
+fi
+echo >> "$pipeline_log"
 
-# # Run GATK4 SortVcf on GenotypeGVCFs VCFs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}sort_vcf.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$vcfs_dir" "$qc_dir" \
-#     "$genome" "$vcf_list")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 SortVcf on GenotypeGVCFs VCFs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}sort_vcf.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$vcfs_dir" "$qc_dir" \
+    "$genome" "$vcf_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Overwrite index of VCF files with sorted index
-# # Depend start upon last job step
-# dependency_prefix="$input_prefix"
-# until [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
-# do
-#     {
-#         date
-#         echo "Waiting for completion of $dependency_prefix step."
-#     } >> "$pipeline_log"
-#     sleep "$sleep_time"
-# done
-# num_vcfs="$(find $vcfs_dir -type f -name "*${genome_base}sorted.vcf.gz" | wc -l)"
-# if [[ "$num_vcfs" -eq "$array_size" ]]
-# then
-#     {
-#         date
-#         echo "Creating $vcf_list of $num_vcfs files."
-#     } >> "$pipeline_log"
-#     ls "$vcfs_dir/"*"${genome_base}.sorted.vcf.gz" > "$vcf_list"
-#     num_vcfs_list="$(wc -l < "$vcf_list")"
-#     if [[ "$num_vcfs_list" -ne "$array_size" ]]
-#     then
-#         {
-#             date
-#             echo "Error - incorrect # files ($num_vcfs_list/$array_size) in $vcf_list"
-#             echo "Exiting..."
-#         } >> "$pipeline_log"
-#         exit 1
-#     fi
-# else
-#     {
-#         date
-#         echo "Error - incorrect # files ($num_vcfs/$array_size) in $vcfs_dir"
-#         echo "$vcf_list not updated. Exiting..."
-#     } >> "$pipeline_log"
-# fi
-# echo >> "$pipeline_log"
+# Overwrite index of VCF files with sorted index
+# Depend start upon last job step
+dependency_prefix="$input_prefix"
+until [[ "$(ls_check "$prefix" | wc -l)" -eq "$dependency_size" ]]
+do
+    {
+        date
+        echo "Waiting for completion of $dependency_prefix step."
+    } >> "$pipeline_log"
+    sleep "$sleep_time"
+done
+num_vcfs="$(find $vcfs_dir -type f -name "*${genome_base}sorted.vcf.gz" | wc -l)"
+if [[ "$num_vcfs" -eq "$array_size" ]]
+then
+    {
+        date
+        echo "Creating $vcf_list of $num_vcfs files."
+    } >> "$pipeline_log"
+    ls "$vcfs_dir/"*"${genome_base}.sorted.vcf.gz" > "$vcf_list"
+    num_vcfs_list="$(wc -l < "$vcf_list")"
+    if [[ "$num_vcfs_list" -ne "$array_size" ]]
+    then
+        {
+            date
+            echo "Error - incorrect # files ($num_vcfs_list/$array_size) in $vcf_list"
+            echo "Exiting..."
+        } >> "$pipeline_log"
+        exit 1
+    fi
+else
+    {
+        date
+        echo "Error - incorrect # files ($num_vcfs/$array_size) in $vcfs_dir"
+        echo "$vcf_list not updated. Exiting..."
+    } >> "$pipeline_log"
+fi
+echo >> "$pipeline_log"
 
-# # Run GATK4 ValidateVariants on GenotypeGVCFs VCFs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}validate_variants.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# iteration=2
-# input_prefix="${input_prefix}_${iteration}"
-# jobid="$(pipeliner --array "$array_size" \
-#     "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$vcfs_dir" "$qc_dir" \
-#     "$genome" "$vcf_list")"
-# # Set dependency size for next step
-# dependency_size="$array_size"
-# echo >> "$pipeline_log"
+# Run GATK4 ValidateVariants on GenotypeGVCFs VCFs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}validate_variants.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+iteration=2
+input_prefix="${input_prefix}_${iteration}"
+jobid="$(pipeliner --array "$array_size" \
+    "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$vcfs_dir" "$qc_dir" \
+    "$genome" "$vcf_list")"
+# Set dependency size for next step
+dependency_size="$array_size"
+echo >> "$pipeline_log"
 
-# # Run GATK4 MergeVcfs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}merge_vcfs.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$vcfs_dir" "$genome" "$vcf_list")"
-# # Set dependency size for next step
-# dependency_size=1
-# echo >> "$pipeline_log"
+# Run GATK4 MergeVcfs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}merge_vcfs.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$vcfs_dir" "$genome" "$vcf_list")"
+# Set dependency size for next step
+dependency_size=1
+echo >> "$pipeline_log"
 
-# # Run MultiQC on pipeline QC outputs
-# # Depend start upon last job step
-# dependency="$jobid"
-# dependency_prefix="$input_prefix"
-# input_sbatch="${scripts_dir}multiqc.sbatch"
-# input_prefix="$(get_prefix "$input_sbatch")"
-# if [[ -n "$dependency" ]]
-# then
-#     {
-#         date
-#         echo "Running $input_prefix after $dependency_prefix step (jobid: $dependency)" 
-#     } >> "$pipeline_log"
-#     jobid="$(depend "$input_sbatch" "$input_prefix" \
-#         "$dependency" \
-#         "$qc_dir" "$scripts_dir")"
-# fi
-# jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
-#     "$sleep_time" "$input_sbatch" "$input_prefix" \
-#     "$qc_dir" "$scripts_dir")"
-# # Set dependency size for next step
-# dependency_size=1
-# echo >> "$pipeline_log"
+# Run MultiQC on pipeline QC outputs
+# Depend start upon last job step
+dependency="$jobid"
+dependency_prefix="$input_prefix"
+input_sbatch="${scripts_dir}multiqc.sbatch"
+input_prefix="$(get_prefix "$input_sbatch")"
+if [[ -n "$dependency" ]]
+then
+    {
+        date
+        echo "Running $input_prefix after $dependency_prefix step (jobid: $dependency)" 
+    } >> "$pipeline_log"
+    jobid="$(depend "$input_sbatch" "$input_prefix" \
+        "$dependency" \
+        "$qc_dir")"
+fi
+jobid="$(pipeliner "$dependency_prefix" "$dependency_size" \
+    "$sleep_time" "$input_sbatch" "$input_prefix" \
+    "$qc_dir")"
+# Set dependency size for next step
+dependency_size=1
+echo >> "$pipeline_log"
 

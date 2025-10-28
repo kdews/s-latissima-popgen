@@ -11,10 +11,13 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-samples_file="$4"
-sample_id="$(cat "$samples_file" | sed -n "${SLURM_ARRAY_TASK_ID}"p)"
-reads1="${indir}/${sample_id}_R1.fastq.gz"
-reads2="${indir}/${sample_id}_R2.fastq.gz"
+genome="$4" # genome FASTA
+samples_list="$5" # list of sample IDs
+
+# Parse sample ID and read filenames
+sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}"p "$samples_list")"
+reads1="$indir/${sample_id}_R1.fastq.gz"
+reads2="$indir/${sample_id}_R2.fastq.gz"
 
 # Create output directory (if needed)
 echo "Creating output directory: $outdir"
@@ -49,15 +52,17 @@ echo "${cmd[*]}"
 "${cmd[@]}"
 
 # Checkpoint
+mkdir -p checkpoints
 if [[ -f "${outdir}/${sample_id}_R1_fastqc.zip" ]] && \
 	[[ -f "${outdir}/${sample_id}_R2_fastqc.zip" ]] && \
 	[[ -f "${outdir}/${sample_id}_R1_fastqc.html" ]] && \
 	[[ -f "${outdir}/${sample_id}_R2_fastqc.html" ]]
 then
-	mkdir -p checkpoints
+	echo "Creating checkpoint."
 	touch "checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint"
 	exit 0
 else
 	echo "Error - not all FastQC files created for sample ID: $sample_id"
+	echo "Checkpoint not created."
 	exit 1
 fi

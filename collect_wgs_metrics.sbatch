@@ -2,56 +2,54 @@
 #SBATCH --time=05:00:00
 #SBATCH --mem=2gb
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
-outdir=$3 # output directory
-genome=$4
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-samples_file=$5
-sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+# Print date and time
+date
+echo
 
-# Load GATK4
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate gatk4
-gatk --version
-if [[ $? -ne 0 ]]
-then
-	echo "Error - check GATK4 installation."
-	exit 1
-fi
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome="$4" # genome FASTA
+samples_list="$5" # list of sample IDs
 
 # Create output directory (if needed)
-if [[ ! -d $outdir ]]
-then    
-	mkdir $outdir
-fi
+mkdir -p "$outdir"
 
-# Run GATK4 CollectAlignmentSummaryMetrics on HISAT2 alignmnets
-gatk CollectWgsMetrics \
--R $genome \
--I ${indir}/${sample_id}_${genome_base}.sorted.bam \
--O ${outdir}/${sample_id}_${genome_base}.collect_wgs.metrics
+# Parse genome filename
+genome_basename="$(basename "$genome")"
+genome_base="${genome_basename%%.*}"
+# Parse sample ID
+sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
+# Input BAM file
+in_bam="$indir/${sample_id}_$genome_base.sorted.bam"
+# Output QC file named from sample ID
+wgs_metrics="$outdir/${sample_id}_$genome_base.collect_wgs.metrics"
+
+# Load GATK4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+gatk --version
+
+# Run GATK4's CollectAlignmentSummaryMetrics on HISAT2 alignmnets
+cmd=(
+	gatk CollectWgsMetrics
+	-R "$genome"
+	-I "$in_bam"
+	-O "$wgs_metrics"
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$wgs_metrics" ]]
 then
-	if [[ -f \
-${outdir}/${sample_id}_${genome_base}.collect_wgs.metrics ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		echo "Error - WGS Metrics file for BAM \
-${indir}/${sample_id}_${genome_base}.sorted.bam not created."
-		exit 1
-	fi
+	echo "Creating checkpoint."
+	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+	exit 0
 else
-	echo "Error - non-zero exit code returned by GATK4."
+	echo "Error - WGS Metrics file ($wgs_metrics) for BAM ($in_bam) not found."
+	echo "Checkpoint not created."
 	exit 1
 fi

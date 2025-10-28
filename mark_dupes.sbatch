@@ -2,61 +2,59 @@
 #SBATCH --time=02:00:00
 #SBATCH --mem=15gb
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
-outdir=$3 # output directory
-genome=$4
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-samples_file=$5
-sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-qc_dir=$6
+# Print date and time
+date
+echo
+
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome="$4" # genome FASTA
+samples_list="$5" # list of sample IDs
+qc_dir="$6" # directory to write QC output
+
+# Create output and QC directories (if needed)
+mkdir -p "$outdir"
+mkdir -p "$qc_dir"
+
+# Parse genome filename
+genome_basename="$(basename "$genome")"
+genome_base="${genome_basename%%.*}"
+# Parse sample ID
+sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
+# Input sorted BAM file
+in_bam="$indir/${sample_id}_$genome_base.sorted.bam"
+# Output marked BAM file
+out_bam="$outdir/${sample_id}_$genome_base.sorted.marked.bam"
+# QC metrics for marked duplicates
+dupe_metrics="$qc_dir/${sample_id}_$genome_base.mark_dupes.metrics"
 
 # Load GATK4
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate gatk4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version
-if [[ $? -ne 0 ]]
+
+# Run GATK4's MarkDuplicates
+cmd=(
+	gatk MarkDuplicates
+	-I" $in_bam"
+	-O "$out_bam"
+	-M "$dupe_metrics"
+	--VALIDATION_STRINGENCY LENIENT
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
+
+# Checkpoint
+mkdir -p checkpoints
+if [[ -f "$out_bam" ]]
 then
-	echo "Error - check GATK4 installation."
-	exit 1
-fi
-
-# Create output and QC directory (if needed)
-if [[ ! -d $outdir ]]
-then    
-	mkdir $outdir
-fi
-if [[ ! -d $qc_dir ]]
-then    
-	mkdir $qc_dir
-fi
-
-
-# GATK4's MarkDuplicates
-gatk MarkDuplicates \
--I ${indir}/${sample_id}_${genome_base}.sorted.bam \
--O ${outdir}/${sample_id}_${genome_base}.sorted.marked.bam \
--M ${qc_dir}/${sample_id}_${genome_base}.mark_dupes.metrics \
---VALIDATION_STRINGENCY LENIENT
-
-if [[ $? -eq 0 ]]
-then
-	if [[ -f ${outdir}/${sample_id}_${genome_base}.sorted.marked.bam ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		echo "Error - duplicate-marked BAM not created \
-for ${sample_id}."
-		exit 1
-	fi
+	echo "Creating checkpoint."
+	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+	exit 0
 else
-	echo "Error - non-zero exit code returned by GATK4."
+	echo "Error - duplicate-marked BAM not found for sample ID: $sample_id"
+	echo "Checkpoint not created."
 	exit 1
 fi

@@ -3,50 +3,56 @@
 #SBATCH --time=01:00:00
 #SBATCH --cpus-per-task=5
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
-outdir=$3 # output directory
-genome=$4
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-indiv_file=$5
-indiv_id=`cat $indiv_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
+# Print date and time
+date
+echo
+
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome="$4" # genome FASTA
+indiv_list="$5" # list of individual IDs
+
+# Parse genome filename
+genome_basename="$(basename "$genome")"
+genome_base="${genome_basename%%.*}"
+# Parse individual ID
+indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
+in_bam="$indir/${indiv_id}_$genome_base.sorted.marked.merged.bam"
+
+# Load conda
+cond=~/.conda_for_sbatch.sh
+if [[ -a "$cond" ]]
+then
+  source "$cond"
+else
+  echo "Error on source of $cond"
+  exit 1
+fi
 
 # Load samtools
-source ~/bin/anaconda3/etc/profile.d/conda.sh
 conda activate samtools
 samtools --version
-if [[ $? -ne 0 ]]
-then
-	printf "Error - check samtools installation.\n"
-	exit 1
-fi
 
-# samtools index bam
-samtools index -@ ${SLURM_CPUS_PER_TASK} \
-${indir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam
+# Index BAM with samtools
+cmd=(
+	samtools index
+	-@ "$SLURM_CPUS_PER_TASK"
+	"$in_bam"
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$in_bam.bai" ]]
 then
-	if [[ -f \
-${indir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam.bai ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		printf "Error - merged BAM file \
-${indir}/${indiv_id}_${genome_base}.sorted.marked.merged.bam \
-not indexed.\n"
-		exit 1
-	fi
+	echo "Creating checkpoint."
+	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+	exit 0
 else
-	printf "Error - non-zero exit code returned by samtools.\n"
+	echo "Error - no BAM index ($in_bam.bai) found."
+	echo "Checkpoint not created."
 	exit 1
 fi
-

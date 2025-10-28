@@ -3,104 +3,125 @@
 #SBATCH --mem=50g
 #SBATCH --cpus-per-task=12
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
-outdir=$3 # output directory
-genome=$4
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-samples_file=$5
-sample_id=`cat $samples_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-# Use realpaths for HISAT2 inputs because directory changes
-reads1=`realpath ${indir}/${sample_id}_R1.repaired.fastq.gz`
-reads2=`realpath ${indir}/${sample_id}_R2.repaired.fastq.gz`
-qc_dir=`realpath $6`
-indiv_file=$7
+# Print date and time
+date
+echo
+
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome="$4" # genome FASTA
+samples_list="$5" # list of sample IDs
+qc_dir="$6" # directory to write QC output
+indiv_list="$7" # list of individual IDs
+
+# Create output and QC directories (if needed)
+mkdir -p "$outdir"
+mkdir -p "$qc_dir"
+
+# Parse genome filename
+genome_basename="$(basename "$genome")"
+genome_base="${genome_basename%%.*}"
+# HISAT2 index file prefix
+ht2_idx="$outdir/$genome_base"
+
+# Parse sample ID and read filenames
+sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
+reads1="$indir/${sample_id}_R1.fastq.gz"
+reads2="$indir/${sample_id}_R2.fastq.gz"
+
 # Define memory per thread for samtools sort
-mem_per_thread="$(( 9 * $SLURM_MEM_PER_NODE / \
-$SLURM_JOB_CPUS_PER_NODE / 10000 ))G"
+mem_per_thread="$(( 9 * SLURM_MEM_PER_NODE / SLURM_JOB_CPUS_PER_NODE / 10000 ))G"
 
-## Load HISAT2
-#source ~/bin/anaconda3/etc/profile.d/conda.sh
-#conda activate hisat2
-hisat2 --version
-if [[ $? -ne 0 ]]
+# Load conda
+cond=~/.conda_for_sbatch.sh
+if [[ -a "$cond" ]]
 then
-	echo "Error - check HISAT2 installation."
-	exit 1
+  source "$cond"
+else
+  echo "Error on source of $cond"
+  exit 1
 fi
 
-# Create output and QC directory (if needed)
-if [[ ! -d $outdir ]]
-then    
-	mkdir $outdir
-fi
-if [[ ! -d $qc_dir ]]
-then    
-	mkdir $qc_dir
-fi
+# Load HISAT2
+conda activate hisat2
+hisat2 --version
 
-printf "Running HISAT2 on 2 read files associated \
-with ${sample_id}:
-$reads1 and
-${reads2}.\n\n"
-
-# Define read groups for SAM headers from input $sample_id
-# and input FASTQ file read IDs
+# Define read groups for SAM headers from sample ID and FASTQ file read IDs
+echo "Parsing read groups from sample ID ($sample_id) and associated read files:"
+echo "1: $reads1"
+echo "2: $reads2"
 # Input sample ID format = UniqueID_SampleID_Sequencer_Barcode_Plate_Lane_Read 
-# Create array 'rgs' from $sample_id by splitting on '_'
-rgs1=(${sample_id//_/ })
-read_id=`zcat $reads1 | head -n1 | awk '{print $1}' | sed 's/@//g'`
-rgs2=(${read_id//:/ })
-# Index both $sample_id array and read ID array to generate read group values
+# Create array 'rgs1' from sample ID by splitting on '_'
+IFS='_' read -r -a rgs1 <<< "$sample_id"
+# Read first line of FASTQ to get read ID
+read_id="$(zcat "$reads1" | head -n1 | awk '{print $1}' | sed 's/@//g')"
+# Create array 'rgs2' from read ID by splitting on ':'
+IFS=':' read -r -a rgs2 <<< "$read_id"
+# Index rgs1 (sample ID array) and rgs2 (read ID array) to generate read group values
 # Read group ID = {FLOWCELL_BARCODE}.{LANE}
 rg_id="${rgs2[2]}.${rgs2[3]}"
-echo "Read group ID = ID:${rg_id}"
-# Read group SaMple name (SM) = shortened SampleID within input $sample_id (no UniqueID)
+echo "Read group ID = ID:$rg_id"
+# Read group SaMple name (SM) = shortened SampleID within input sample ID (no UniqueID)
 rg_sm="${rgs1[1]}"
-echo "Read group sample name = SM:${rg_sm}"
-echo "$rg_sm" >> $indiv_file
+echo "Read group sample name = SM:$rg_sm"
+echo "$rg_sm" >> "$indiv_list"
 # Read group Platform Unit (PU) = {FLOWCELL_BARCODE}.{LANE}.{SAMPLE_NAME}
 rg_pu="${rgs2[2]}.${rgs2[3]}.${rgs1[1]}"
-echo "Read group platform unit = PU:${rg_pu}"
+echo "Read group platform unit = PU:$rg_pu"
 # Read group LiBrary identifier = SampleID-UniqueID
 rg_lb="${rgs1[1]}-${rgs1[0]}"
-echo "Read group library identifier = LB:${rg_lb}"
+echo "Read group library identifier = LB:$rg_lb"
 # Read group PLatform (PL) = ILLUMINA
 rg_pl="ILLUMINA"
-echo "Read group platform = PL:${rg_pl}"
+echo "Read group platform = PL:$rg_pl"
 
-# Run HISAT2 & pipe output to samtools
-cd $outdir
-hisat2 -p ${SLURM_CPUS_PER_TASK} --time \
--x $genome_base -1 ${reads1} -2 ${reads2} \
---rg-id=${rg_id} --rg SM:${rg_sm} --rg LB:${rg_lb} \
---rg PU:${rg_pu} --rg PL:${rg_pl} \
---summary-file=${qc_dir}/${sample_id}_${genome_base}.hisat2_rerun.summary | \
-samtools sort -b -@ ${SLURM_CPUS_PER_TASK} \
--m ${mem_per_thread} \
--O ${sample_id}_${genome_base}.sorted.bam
+# Run HISAT2 and pipe output to samtools sort
+echo "Running HISAT2 on read files associated with sample ID: $sample_id"
+echo "1: $reads1" 
+echo "2: $reads2"
+hisat2_cmd=(
+	hisat2
+	-p "$SLURM_CPUS_PER_TASK"
+	--time
+	-x "$ht2_idx"
+	-1 "$reads1"
+	-2 "$reads2"
+	--rg-id="$rg_id"
+	--rg "SM:$rg_sm"
+	--rg "LB:$rg_lb"
+	--rg "PU:$rg_pu"
+	--rg "PL:$rg_pl"
+	--summary-file="$qc_dir/${sample_id}_$genome_base.hisat2.summary"
+)
+samtools_cmd=(
+	samtools sort -b
+	-@ "$SLURM_CPUS_PER_TASK"
+	-m "$mem_per_thread"
+	-O "$outdir/${sample_id}_$genome_base.sorted.bam"
+)
+echo "${hisat2_cmd[*]} | ${samtools_cmd[*]}"
+"${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
+
+# hisat2 -p ${SLURM_CPUS_PER_TASK} --time \
+# -x $genome_base -1 ${reads1} -2 ${reads2} \
+# --rg-id=${rg_id} --rg SM:${rg_sm} --rg LB:${rg_lb} \
+# --rg PU:${rg_pu} --rg PL:${rg_pl} \
+# --summary-file=${qc_dir}/${sample_id}_${genome_base}.hisat2_rerun.summary | \
+# samtools sort -b -@ ${SLURM_CPUS_PER_TASK} \
+# -m ${mem_per_thread} \
+# -O ${sample_id}_${genome_base}.sorted.bam
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$outdir/${sample_id}_$genome_base.sorted.bam" ]]
 then
-	cd ..
-	if [[ -f ${outdir}/${sample_id}_${genome_base}.sorted.bam ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		printf "Error - alignment file not created \
-for ${sample_id}.\n"
-		exit 1
-	fi
+	echo "Creating checkpoint."
+	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+	exit 0
 else
-	echo "Error - non-zero exit code returned by HISAT2."
+	echo "Error - alignment file not created for sample ID: $sample_id"
+	echo "Checkpoint not created."
 	exit 1
 fi
-

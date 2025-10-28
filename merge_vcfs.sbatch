@@ -2,55 +2,56 @@
 #SBATCH --mem=100g
 #SBATCH --time=4-0
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 
-genome=$3
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-genome_path=`dirname $genome`
-vcf_list=$4
-tempdir=${prefix}_tmp
+# Print date and time
+date
+echo
+
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome="$4" # genome FASTA
+vcf_list="$5" # list of genotyped VCF files
+
+# Name temp directory after job name
+tempdir="${prefix}_tmp"
+
+# Create temp directory (if needed)
+mkdir -p "$tempdir"
+
+# Parse genome filename
+genome_basename="$(basename "$genome")"
+genome_base="${genome_basename%%.*}"
+genome_path=$(dirname "$genome")
+# Output VCF named from genome FASTA
+out_vcf="master_$genome_base.vcf.gz"
 
 # Load GATK4
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate gatk4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version
-if [[ $? -ne 0 ]]
-then
-	echo "Error - check GATK4 installation."
-	exit 1
-fi
-
-# Create temp directory
-if [[ ! -d $tempdir ]]
-then
-	mkdir $tempdir
-fi
 
 # Run GATK4's MergeVcfs
-gatk MergeVcfs --java-options "-Xms85g -Xmx85g" \
--R $genome -D ${genome_path}/${genome_base}.dict \
--I $vcf_list -O master_${genome_base}.vcf.gz \
---TMP_DIR $tempdir
+cmd=(
+	gatk MergeVcfs --java-options "-Xms85g -Xmx85g"
+	-R "$genome"
+	-D "${genome_path}/${genome_base}.dict"
+	-I "$vcf_list"
+	-O "$out_vcf"
+	--TMP_DIR "$tempdir"
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f master_${genome_base}.vcf.gz ]]
 then
-	if [[ -f master_${genome_base}.vcf.gz ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch checkpoints/${prefix}.checkpoint
-		exit 0
-	else
-		echo "Error - VCF file master_${genome_base}.vcf.gz \
-not created."
-		exit 1
-	fi
+	echo "Creating checkpoint."
+	touch "checkpoints/$prefix.checkpoint"
+	exit 0
 else
-	echo "Error - non-zero exit code returned by GATK4."
+	echo "Error - VCF file master_$genome_base.vcf.gz not found."
+	echo "Checkpoint not created."
 	exit 1
 fi
-
