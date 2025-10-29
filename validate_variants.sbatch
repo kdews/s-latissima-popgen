@@ -2,65 +2,69 @@
 #SBATCH --mem=8gb
 #SBATCH --time=05:00:00
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
-outdir=$3 # output directory
-genome=$4
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-infile_list=$5
-infile=`cat $infile_list | sed -n ${SLURM_ARRAY_TASK_ID}p`
-infile_basename=$(basename -- $infile)
-# Set $filetype_flag to -gvcf, if needed
-gvcf_patterns=("g.vcf" "gvcf")
-for i in "${gvcf_patterns[@]}"
-do 
-	[[ `echo $infile | grep $i` ]] && filetype_flag="-gvcf" \
-&& echo "Treating $infile as gVCF file."
-done
-[[ -z $filetype_flag ]] &&  echo "Treating $infile as VCF file."
+# Print date and time
+date
+echo
 
-# Load GATK4
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate gatk4
-gatk --version
-if [[ $? -ne 0 ]]
-then
-	echo "Error - check GATK4 installation."
-	exit 1
-fi
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome_config="$4" # genome config file
+infile_list="$5" # list of input variant files
 
 # Create output directory (if needed)
-if [[ ! -d $outdir ]]
+mkdir -p "$outdir"
+
+# Source genome config
+if [[ -f "$genome_config" ]]
 then
-	mkdir $outdir
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
 fi
 
+# Parse input filename
+infile="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$infile_list")"
+infile_basename="$(basename "$infile")"
+# Output QC summary
+out_summary="$outdir/$infile_basename.validate.summary"
+
+# Set $filetype_flag to -gvcf, if needed
+if echo "$infile" | grep -Pq "g\.vcf|gvcf"
+then
+    echo "Treating input file ($infile) as gVCF file."
+    filetype_flag="-gvcf"
+else
+    echo "Treating input file ($infile) as VCF file."
+fi 
+
+# Load GATK4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+gatk --version
+
 # Run GATK4's ValidateVariants
-gatk ValidateVariants $filetype_flag \
---validation-type-to-exclude ALLELES \
--R $genome \
--V $infile > \
-${outdir}/${infile_basename}.validate.summary 2>&1
+cmd=(
+    gatk ValidateVariants
+    "$filetype_flag"
+    --validation-type-to-exclude ALLELES
+    -R "$genome_local_unzip"
+    -V "$infile"
+)
+echo "${cmd[*]} > $out_summary 2>&1"
+"${cmd[@]}" > "$out_summary" 2>&1
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$out_summary" ]]
 then
-	if [[ -f ${outdir}/${infile_basename}.validate.summary ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		echo "Error - ValidateVariant summary for \
-$infile not created."
-		exit 1
-	fi
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - non-zero exit code returned by GATK4."
-	exit 1
+    echo "Error - ValidateVariant summary for input file ($infile) not found."
+    echo "Checkpoint not created."
+    exit 1
 fi

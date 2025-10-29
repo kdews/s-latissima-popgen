@@ -11,7 +11,7 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 samples_list="$5" # file to save parsed sample IDs
 scripts_dir="$6" # optional: directory containing scripts (MUST end in '/')
 
@@ -50,18 +50,29 @@ echo "${cmd[*]}"
 "${cmd[@]}"
 unset cmd
 
+# Load GNU parallel
 module purge
 module load ver/2506 gcc/14.3.0 parallel
 parallel --version
+
+# Run rsync commands in parallel
 parallel -j "$SLURM_CPUS_PER_TASK" < "$rsync_list"
 
 # Make $samples_list from FASTQs in $outdir
 echo "Creating $samples_list"
-find "$outdir" -type f -name "*.fastq.gz"    \
+find "$outdir" -type f -name "*.fastq.gz" \
     | sed -E 's|.*/||; s/_R[12]\.fastq.*//' \
     | sort -u > "$samples_list"
 
 # Checkpoint
 mkdir -p checkpoints
-echo "Creating checkpoint."
-touch "checkpoints/${prefix}.checkpoint"
+if [[ -f "$samples_list" ]]
+then
+    echo "Creating checkpoint."
+    touch "checkpoints/$prefix.checkpoint"
+    exit 0
+else
+    echo "Error - no samples list ($samples_list) found."
+    echo "Checkpoint not created."
+    exit 1
+fi

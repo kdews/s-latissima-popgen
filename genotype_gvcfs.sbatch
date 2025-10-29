@@ -10,7 +10,7 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # parent input directory containing subdirectories
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 intervals_list="$5" # text file listing interval filenames
 
 # Name temp directory after job name
@@ -22,10 +22,16 @@ mkdir -p "$tempdir"
 
 # Subdirectory for this job step
 indir="$indir/interval_$SLURM_ARRAY_TASK_ID"
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
-genome_path=$(dirname "$genome")
+
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
 # Parse interval
 interval="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$intervals_list")"
 # Output VCF named based on interval
@@ -38,14 +44,14 @@ gatk --version
 
 # Run GATK4's GenotypeGVCFs with GenomicsDBImport option
 cmd=(
-	gatk GenotypeGVCFs
-	--java-options "-Xms14g -Xmx14g"
-	-R "$genome"
-	--sequence-dictionary "$genome_path/$genome_base.dict"
-	-L "$interval"
-	-V "gendb://$indir"
-	-O "$out_vcf"
-	--tmp-dir "$tempdir"
+    gatk GenotypeGVCFs
+    --java-options "-Xms14g -Xmx14g"
+    -R "$genome_local_unzip"
+    --sequence-dictionary "$genome_dict"
+    -L "$interval"
+    -V "gendb://$indir"
+    -O "$out_vcf"
+    --tmp-dir "$tempdir"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -54,11 +60,11 @@ echo "${cmd[*]}"
 mkdir -p checkpoints
 if [[ -f "$out_vcf" ]]
 then
-	echo "Creating checkpoint."
-	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-	exit 0
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - output VCF file ($out_vcf) not found."
-	echo "Checkpoint not created."
-	exit 1
+    echo "Error - output VCF file ($out_vcf) not found."
+    echo "Checkpoint not created."
+    exit 1
 fi

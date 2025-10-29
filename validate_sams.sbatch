@@ -2,58 +2,58 @@
 #SBATCH --mem=8gb
 #SBATCH --time=05:00:00
 
-prefix=$1 # sbatch filename without file extensions
-indir=$2 # input directory
-outdir=$3 # output directory
-genome=$4
-genome_basename=$(basename -- $genome)
-genome_base=`echo $genome_basename | sed 's/\..*//g'`
-id_file=$5
-id=`cat $id_file | sed -n ${SLURM_ARRAY_TASK_ID}p`
-pattern=$6 # SAM/BAM file ending pattern (e.g., .sorted.bam)
-# Note: input filenames must have an underscore following the unique ID
-infile=`ls ${indir}/*${id}_*${pattern}`
-infile_basename=$(basename -- $infile)
-
-# Load GATK4
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate gatk4
-gatk --version
-if [[ $? -ne 0 ]]
-then
-	echo "Error - check GATK4 installation."
-	exit 1
-fi
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome_config="$4"
+id_file="$5" # index file (any text file list in indexer/)
+pattern="$6" # SAM/BAM file ending pattern (e.g., .sorted.bam)
 
 # Create output directory (if needed)
-if [[ ! -d $outdir ]]
+mkdir -p "$outdir"
+
+# Source genome config
+if [[ -f "$genome_config" ]]
 then
-	mkdir $outdir
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
 fi
 
+# Parse ID from index file
+id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
+# Parse input filename (must have underscore (_) following unique ID)
+infile="$(find "$indir" -type f -name "*${id}_*$pattern")"
+infile_basename="$(basename "$infile")"
+# Output QC summary file named from ID
+out_summary="$outdir/$infile_basename.validate.summary"
+
+# Load GATK4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+gatk --version
+
 # Run GATK4's ValidateSamFile in summary mode
-gatk ValidateSamFile -M SUMMARY \
--R $genome -I $infile \
--O ${outdir}/${infile_basename}.validate.summary
+cmd=(
+    gatk ValidateSamFile
+    -M SUMMARY
+    -R "$genome_local_unzip"
+    -I "$infile"
+    -O "$out_summary"
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$out_summary" ]]
 then
-	if [[ -f ${outdir}/${infile_basename}.validate.summary ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		echo "Error - ValidateSamFile summary for BAM \
-$infile not created."
-		exit 1
-	fi
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - non-zero exit code returned by GATK4."
-	exit 1
+    echo "Error - ValidateSamFile summary for BAM ($infile) not found."
+    echo "Checkpoint not created."
+    exit 1
 fi

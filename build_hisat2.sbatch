@@ -11,42 +11,43 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 
 # Create output directory (if needed)
 mkdir -p "$outdir"
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_basename_unzip="${genome_basename%%.gz}"
-genome_base="${genome_basename%%.*}"
-# HISAT2 index file prefix
-ht2_idx="$outdir/$genome_base"
-
-# Copy input genome file to $outdir (if needed)
-if [[ ! -f "$outdir/$genome_basename" ]]
+# Source genome config
+if [[ -f "$genome_config" ]]
 then
-    echo "Copying genome ($genome) to: $(realpath -e "$outdir")."
-    rsync -avc "$genome" "$outdir/"
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
 fi
-# Unzip copied genome (if needed)
-if [[ ! -f "$outdir/$genome_basename_unzip" ]]
+
+# Copy and uncompress input genome file to $indir (if needed)
+if [[ ! -f "$genome_local_unzip" ]]
 then
+    if [[ ! -f "$genome_local" ]]
+    then
+        echo "Copying genome ($genome) to: $(realpath -e "$indir")"
+        rsync -avc "$genome" "$indir/"
+    fi
     module purge
     module load ver/2506 gcc/14.3.0 gzip/1.14
-    echo "Unzipping genome: $outdir/$genome_basename"
-    gunzip "$outdir/$genome_basename"
+    echo "Unzipping genome: $genome_local"
+    gunzip "$genome_local"
     module purge
 fi
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
-if [[ -a "$cond" ]]
+if [[ -f "$cond" ]]
 then
-  source "$cond"
+    source "$cond"
 else
-  echo "Error on source of $cond"
-  exit 1
+    echo "Error on source of $cond"
+    exit 1
 fi
 
 # Load HISAT2
@@ -54,11 +55,11 @@ conda activate hisat2
 hisat2-build --version
 
 # Start HISAT2-build run
-echo "Running HISAT2-build on genome file: $genome_basename_unzip"
+echo "Running HISAT2-build on genome file: $genome_local_unzip"
 cmd=(
     hisat2-build
     -p "$SLURM_CPUS_PER_TASK"
-    "$genome_basename_unzip"
+    "$genome_local_unzip"
     "$ht2_idx"
 )
 echo "${cmd[*]}"

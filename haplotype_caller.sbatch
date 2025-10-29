@@ -11,7 +11,7 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 indiv_list="$5" # list of individual IDs
 
 # Name temp directory after job name
@@ -21,10 +21,15 @@ tempdir="${prefix}_tmp"
 mkdir -p "$outdir"
 mkdir -p "$tempdir"
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
-genome_path="$(dirname "$genome")"
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
 # Parse individual ID
 indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
 # Input BAM
@@ -39,14 +44,14 @@ gatk --version
 
 # Run GATK4's HaplotypeCaller
 cmd=(
-	gatk HaplotypeCaller
-	-ERC GVCF
-	-ploidy 1
-	-R "$genome"
-	--sequence-dictionary "$genome_path/$genome_base.dict"
-	-I "$in_bam"
-	-O "$out_gvcf"
-	--tmp-dir "$tempdir"
+    gatk HaplotypeCaller
+    -ERC GVCF
+    -ploidy 1
+    -R "$genome_local_unzip"
+    --sequence-dictionary "$genome_dict"
+    -I "$in_bam"
+    -O "$out_gvcf"
+    --tmp-dir "$tempdir"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -55,12 +60,12 @@ echo "${cmd[*]}"
 mkdir -p checkpoints
 if [[ -f "$out_gvcf" ]]
 then
-	echo "Creating checkpoint."
-	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-	exit 0
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - output gVCF file ($out_gvcf) not found."
-	echo "Checkpoint not created."
-	exit 1
+    echo "Error - output gVCF file ($out_gvcf) not found."
+    echo "Checkpoint not created."
+    exit 1
 fi
 

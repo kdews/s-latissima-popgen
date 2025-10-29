@@ -11,7 +11,7 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 samples_list="$5" # list of sample IDs
 qc_dir="$6" # directory to write QC output
 
@@ -26,12 +26,12 @@ reads2="$indir/${sample_id}_R2.fastq.gz"
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
-if [[ -a "$cond" ]]
+if [[ -f "$cond" ]]
 then
-  source "$cond"
+    source "$cond"
 else
-  echo "Error on source of $cond"
-  exit 1
+    echo "Error on source of $cond"
+    exit 1
 fi
 
 # Load Trim Galore!
@@ -65,7 +65,7 @@ then
     echo "Read trimming and FastQC of trimmed reads completed for sample ID: $sample_id"
     echo "Creating checkpoint."
     mv "$qc_dir/${sample_id}"*"fq.gz" "$outdir"
-    touch "checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint"
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
     exit 0
 else
     echo "Error trimming reads for sample ID: $sample_id"

@@ -2,47 +2,66 @@
 #SBATCH --mem=15gb
 #SBATCH --time=01:00:00
 
-prefix=$1
-qc_dir=$2
-# Optional, to specify directory containing scripts
-scripts_dir=$3
+# Print date and time
+date
+echo
+
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+scripts_dir="$4" # optional: directory containing scripts (MUST end in '/')
+
+# MultiQC config file
+multiqc_config="multiqc_config.yaml"
+# If $scripts_dir exists, prepend path to config
+if [[ -d "$scripts_dir" ]]
+then
+    multiqc_config="${scripts_dir}${multiqc_config}"
+fi
+
+# Verify input directory exists
+if [[ -d "$indir" ]]
+then
+    echo "Running MultiQC on: $indir"
+else
+    echo "Error - input directory to MultiQC ($indir), not found."
+fi
+
+# Load conda
+cond=~/.conda_for_sbatch.sh
+if [[ -f "$cond" ]]
+then
+    source "$cond"
+else
+    echo "Error on source of $cond"
+    exit 1
+fi
 
 # Load multiqc
-source ~/bin/anaconda3/etc/profile.d/conda.sh
 conda activate multiqc
 multiqc --version
-if [[ $? -ne 0 ]]
-then
-	echo "Error - check MultiQC installation."
-fi
 
-# If input directory exists, run MultiQC
-if [[ -d $qc_dir ]]
-then
-	multiqc -c ${scripts_dir}multiqc_config.yaml \
--o $qc_dir $qc_dir
-else
-	echo "Error - input directory to MultiQC, \
-${qc_dir}, not found."
-fi
+# Run MultiQC
+cmd=(
+    multiqc
+    -c "$multiqc_config"
+    -o "$outdir"
+    "$indir"
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
 
 # Checkpoints
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f ${qc_dir}/multiqc_report.html  ]]
 then
-	if [[ -f ${qc_dir}/multiqc_report.html  ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch checkpoints/${prefix}.checkpoint
-		exit 0
-	else
-		echo "Error - MultiQC report not created."
-		exit 1
-	fi
+    echo "Creating checkpoint."
+    touch "checkpoints/$prefix.checkpoint"
+    exit 0
 else
-	echo "Error - non-zero exit code returned by MultiQC."
-	exit 1
+    echo "Error - MultiQC report not created."
+    echo "Checkpoint not created."
+    exit 1
 fi
 

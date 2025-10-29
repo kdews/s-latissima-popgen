@@ -10,15 +10,21 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 samples_list="$5" # list of sample IDs
 
 # Create output directory (if needed)
 mkdir -p "$outdir"
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
 # Parse sample ID
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
 # Input BAM file
@@ -33,10 +39,10 @@ gatk --version
 
 # Run GATK4's CollectAlignmentSummaryMetrics on HISAT2 alignmnets
 cmd=(
-	gatk CollectWgsMetrics
-	-R "$genome"
-	-I "$in_bam"
-	-O "$wgs_metrics"
+    gatk CollectWgsMetrics
+    -R "$genome_local_unzip"
+    -I "$in_bam"
+    -O "$wgs_metrics"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -45,11 +51,11 @@ echo "${cmd[*]}"
 mkdir -p checkpoints
 if [[ -f "$wgs_metrics" ]]
 then
-	echo "Creating checkpoint."
-	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-	exit 0
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - WGS Metrics file ($wgs_metrics) for BAM ($in_bam) not found."
-	echo "Checkpoint not created."
-	exit 1
+    echo "Error - WGS Metrics file ($wgs_metrics) for BAM ($in_bam) not found."
+    echo "Checkpoint not created."
+    exit 1
 fi

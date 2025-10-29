@@ -11,19 +11,26 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 indiv_list="$5" # list of individual IDs
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
 # Parse individual ID
 indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
+# Input BAM file named from ID
 in_bam="$indir/${indiv_id}_$genome_base.sorted.marked.merged.bam"
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
-if [[ -a "$cond" ]]
+if [[ -f "$cond" ]]
 then
   source "$cond"
 else
@@ -37,9 +44,9 @@ samtools --version
 
 # Index BAM with samtools
 cmd=(
-	samtools index
-	-@ "$SLURM_CPUS_PER_TASK"
-	"$in_bam"
+    samtools index
+    -@ "$SLURM_CPUS_PER_TASK"
+    "$in_bam"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -48,11 +55,11 @@ echo "${cmd[*]}"
 mkdir -p checkpoints
 if [[ -f "$in_bam.bai" ]]
 then
-	echo "Creating checkpoint."
-	touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-	exit 0
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - no BAM index ($in_bam.bai) found."
-	echo "Checkpoint not created."
-	exit 1
+    echo "Error - no BAM index ($in_bam.bai) found."
+    echo "Checkpoint not created."
+    exit 1
 fi

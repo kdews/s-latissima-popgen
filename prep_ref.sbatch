@@ -2,82 +2,107 @@
 #SBATCH --mem=500mb
 #SBATCH --time=02:00:00
 
+# Print date and time
+date
+echo
+
+# Input
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
-genome_basename_unzip="${genome_basename%%.gz}"
-genome_dict="$outdir/$genome_base.dict"
+# Create output directory (if needed)
+mkdir -p "$outdir"
 
-# Load GATK4
-module purge
-module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
-gatk --version
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
 
-# Build FASTA dictionary
-cmd=(
-    gatk CreateSequenceDictionary
-    -R "$indir/$genome_basename_unzip"
-    -O "$outdir/$genome_dict"
-)
-echo "${cmd[*]}"
-"${cmd[@]}"
-unset cmd
+# Copy and uncompress input genome file to $indir (if needed)
+if [[ ! -f "$genome_local_unzip" ]]
+then
+    if [[ ! -f "$genome_local" ]]
+    then
+        echo "Copying genome ($genome) to: $(realpath -e "$indir")"
+        rsync -avc "$genome" "$indir/"
+    fi
+    module purge
+    module load ver/2506 gcc/14.3.0 gzip/1.14
+    echo "Unzipping genome: $genome_local"
+    gunzip "$genome_local"
+    module purge
+fi
 
-# Load samtools
-module purge
-conda activate samtools
-samtools --version
+# Create sequence dictionary for downstream GATK tools
+if [[ -f "$genome_dict" ]]
+then
+    echo "Detected GATK sequence dictionary: $genome_dict"
+else
+    # Load GATK4
+    module purge
+    module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+    gatk --version
+    # Build GATK4 sequence dictionary from uncompressed genome FASTA
+    cmd=(
+        gatk CreateSequenceDictionary
+        -R "$genome_local_unzip"
+        -O "$genome_dict"
+    )
+    echo "${cmd[*]}"
+    "${cmd[@]}"
+    unset cmd
+    module purge
+fi
 
-# Build samtools FASTA index
-cmd=(
-    samtools faidx
-    "$indir/$genome_basename_unzip"
-)
-echo "${cmd[*]}"
-"${cmd[@]}"
+# Create FASTA index with samtools
+if [[ -f "$genome_idx" ]]
+then
+    echo "Detected FASTA index: $genome_idx"
+else
+    # Load conda
+    cond=~/.conda_for_sbatch.sh
+    if [[ -f "$cond" ]]
+    then
+        source "$cond"
+    else
+        echo "Error on source of $cond"
+        exit 1
+    fi
+    # Load samtools
+    conda activate samtools
+    samtools --version
+    # Build samtools FASTA index from uncompressed genome FASTA
+    cmd=(
+        samtools faidx
+        "$genome_local_unzip"
+    )
+    echo "${cmd[*]}"
+    "${cmd[@]}"
+fi
 
 # Checkpoint
-files_exist_gatk () {
-    if compgen -G "${indir}/${1}*.dict" > /dev/null
-    then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-
-files_exist_sam () {
-    if compgen -G "${indir}/${1}*.fai" > /dev/null
-    then
-        echo "true"
-    else
-        echo "false"
-    fi
-}
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$genome_dict" ]]
 then
-    cd ..
-    if [[ `files_exist_gatk ${genome_base}` == "true" ]] && \
-[[ `files_exist_sam ${genome_base}` == "true" ]]
+    if [[ -f "$genome_idx" ]]
     then
-        if [[ ! -d checkpoints ]]
-        then
-            mkdir checkpoints
-        fi
-        echo "Success"
-        touch checkpoints/${prefix}.checkpoint
+        echo "Creating checkpoint."
+        touch "checkpoints/$prefix.checkpoint"
         exit 0
     else
-        echo "Error - ${genome_base} dictionary & \
-index files not detected in '${indir}' directory. Checkpoint not created."
+        echo "Error - genome index ($genome_idx) not found."
+        echo "Checkpoint not created."
+        exit 1
     fi
 else
-    echo "Error - non-zero exit code returned by GATK4 or samtools."
+    echo "Error - dictionary ($genome_dict) not found."
+    echo "Checkpoint not created."
     exit 1
 fi
 

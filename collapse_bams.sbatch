@@ -11,7 +11,7 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 indiv_list=$5 # list of individual IDs
 
 # Name temp directory after job name
@@ -21,13 +21,19 @@ tempdir="${prefix}_tmp"
 mkdir -p "$outdir"
 mkdir -p "$tempdir"
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
 # Parse indiviual ID
 indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
 # Output BAM named by individual ID
-out_bam="${outdir}/${indiv_id}_$genome_base.sorted.marked.merged.bam"
+out_bam="$outdir/${indiv_id}_$genome_base.sorted.marked.merged.bam"
 
 # Generate array of input BAM filenames associated with individual ID
 mapfile -t input_bams < <(find "$indir" -type f -name "*_${indiv_id}_*.sorted.marked.bam")
@@ -46,6 +52,7 @@ gatk --version
 # Run GATK4's MergeSamFiles
 cmd=(
     gatk MergeSamFiles
+    -R "$genome_local_unzip"
     "${input_bams[@]}"
     -O "$out_bam"
     --USE_THREADING

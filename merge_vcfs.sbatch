@@ -10,7 +10,7 @@ echo
 prefix="$1" # sbatch filename without file extensions
 indir="$2" # input directory
 outdir="$3" # output directory
-genome="$4" # genome FASTA
+genome_config="$4" # genome config file
 vcf_list="$5" # list of genotyped VCF files
 
 # Name temp directory after job name
@@ -19,10 +19,15 @@ tempdir="${prefix}_tmp"
 # Create temp directory (if needed)
 mkdir -p "$tempdir"
 
-# Parse genome filename
-genome_basename="$(basename "$genome")"
-genome_base="${genome_basename%%.*}"
-genome_path=$(dirname "$genome")
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
 # Output VCF named from genome FASTA
 out_vcf="master_$genome_base.vcf.gz"
 
@@ -33,25 +38,26 @@ gatk --version
 
 # Run GATK4's MergeVcfs
 cmd=(
-	gatk MergeVcfs --java-options "-Xms85g -Xmx85g"
-	-R "$genome"
-	-D "${genome_path}/${genome_base}.dict"
-	-I "$vcf_list"
-	-O "$out_vcf"
-	--TMP_DIR "$tempdir"
+    gatk MergeVcfs
+    --java-options "-Xms85g -Xmx85g"
+    -R "$genome_local_unzip"
+    -D "$genome_dict"
+    -I "$vcf_list"
+    -O "$out_vcf"
+    --TMP_DIR "$tempdir"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f master_${genome_base}.vcf.gz ]]
+if [[ -f "$out_vcf" ]]
 then
-	echo "Creating checkpoint."
-	touch "checkpoints/$prefix.checkpoint"
-	exit 0
+    echo "Creating checkpoint."
+    touch "checkpoints/$prefix.checkpoint"
+    exit 0
 else
-	echo "Error - VCF file master_$genome_base.vcf.gz not found."
-	echo "Checkpoint not created."
-	exit 1
+    echo "Error - VCF file ($out_vcf) not found."
+    echo "Checkpoint not created."
+    exit 1
 fi

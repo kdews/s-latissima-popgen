@@ -2,55 +2,66 @@
 #SBATCH --mem=25g
 #SBATCH --time=00:30:00
 
-prefix=$1
-genome=$2
-infile_list=$3
-infile=`cat $infile_list | sed -n ${SLURM_ARRAY_TASK_ID}p`
-infile_base=`echo $infile | sed 's/\..*//g'`
-tempdir=${prefix}_tmp
+# Print date and time
+date
+echo
+
+# Input
+prefix="$1" # sbatch filename without file extensions
+indir="$2" # input directory
+outdir="$3" # output directory
+genome_config="$4" # genome config file
+vcf_list="$5" # list of genotyped VCF files
+
+# Name temp directory after job name
+tempdir="${prefix}_tmp"
+
+# Create temp directory (if needed)
+mkdir -p "$tempdir"
+
+# Source genome config
+if [[ -f "$genome_config" ]]
+then
+    source "$genome_config"
+else
+    echo "Error on source of genome config: $genome_config"
+    exit 1
+fi
+
+# Parse input VCF name
+in_vcf="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$vcf_list")"
+in_vcf_basename="$(basename "$in_vcf")"
+in_vcf_base="${in_vcf_basename%%.*}"
+# Output VCF named from parsed input filename
+out_vcf="$outdir/$in_vcf_base.sorted.vcf.gz"
 
 # Load GATK4
-source ~/bin/anaconda3/etc/profile.d/conda.sh
-conda activate gatk4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version
-if [[ $? -ne 0 ]]
-then
-	echo "Error - check GATK4 installation."
-	exit 1
-fi
-
-# Create temp directory
-if [[ ! -d $tempdir ]]
-then
-        mkdir $tempdir
-fi
 
 # Run GATK4's SortVcf
-gatk SortVcf \
---java-options "-Xms20g -Xmx20g" \
--R $genome \
--I $infile \
--O ${infile_base}.sorted.vcf.gz \
---TMP_DIR $tempdir
+cmd=(
+    gatk SortVcf
+    --java-options "-Xms20g -Xmx20g"
+    -R "$genome_local_unzip"
+    -I "$in_vcf"
+    -O "$out_vcf"
+    --TMP_DIR "$tempdir"
+)
+echo "${cmd[*]}"
+"${cmd[@]}"
 
 # Checkpoint
-if [[ $? -eq 0 ]]
+mkdir -p checkpoints
+if [[ -f "$out_vcf" ]]
 then
-	if [[ -f ${infile_base}.sorted.vcf.gz ]]
-	then
-		if [[ ! -d checkpoints ]]
-		then
-			mkdir checkpoints
-		fi
-		touch \
-checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint
-		exit 0
-	else
-		echo "Error on sort of $infile"
-		exit 1
-	fi
+    echo "Creating checkpoint."
+    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+    exit 0
 else
-	echo "Error - non-zero exit code returned by GATK4."
-	exit 1
+    echo "Error - sorted VCF ($out_vcf) not found for $in_vcf"
+    echo "Checkpoint not created."
+    exit 1
 fi
 
