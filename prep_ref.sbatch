@@ -8,9 +8,9 @@ echo
 
 # Input
 prefix="$1" # sbatch filename without file extensions
-indir="$2" # input directory
-outdir="$3" # output directory
-genome_config="$4" # genome config file
+genome_config="$2" # genome config file
+indir="$3" # input directory
+outdir="$4" # output directory
 
 # Create output directory (if needed)
 mkdir -p "$outdir"

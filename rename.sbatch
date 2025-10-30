@@ -9,16 +9,15 @@ echo
 
 # Input
 prefix="$1" # sbatch filename without file extensions
-indir="$2" # input directory
-outdir="$3" # output directory
-genome_config="$4" # genome config file
+genome_config="$2" # genome config file
+indir="$3" # input directory
+outdir="$4" # output directory
 samples_list="$5" # file to save parsed sample IDs
 scripts_dir="$6" # optional: directory containing scripts (MUST end in '/')
 
 # Output
-logdir="${prefix}_logs" # log directory
-og_file="$logdir/original_filenames.txt" # list of original FASTQ paths
-rsync_list="$logdir/rsync_list.txt" # list of rsync commands
+og_file="$outdir/original_filenames.txt" # list of original FASTQ paths
+rsync_list="$outdir/rsync_list.txt" # list of rsync commands
 
 # List original FASTQ paths
 cmd=(

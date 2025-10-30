@@ -8,9 +8,10 @@ echo
 
 # Input
 prefix="$1" # sbatch filename without file extensions
-indir="$2" # input directory
-outdir="$3" # output directory
-scripts_dir="$4" # optional: directory containing scripts (MUST end in '/')
+genome_config="$2" # genome config file
+indir="$3" # input directory
+outdir="$4" # output directory
+scripts_dir="$5" # optional: directory containing scripts (MUST end in '/')
 
 # MultiQC config file
 multiqc_config="multiqc_config.yaml"

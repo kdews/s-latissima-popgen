@@ -9,10 +9,10 @@ echo
 
 # Input
 prefix="$1" # sbatch filename without file extensions
-indir="$2" # input directory
-outdir="$3" # output directory
-genome_config="$4" # genome config file
-indiv_list=$5 # list of individual IDs
+genome_config="$2" # genome config file
+indir="$3" # input directory
+outdir="$4" # output directory
+indiv_list="$5" # list of individual IDs
 
 # Name temp directory after job name
 tempdir="${prefix}_tmp"

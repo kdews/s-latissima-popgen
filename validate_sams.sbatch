@@ -3,9 +3,9 @@
 #SBATCH --time=05:00:00
 
 prefix="$1" # sbatch filename without file extensions
-indir="$2" # input directory
-outdir="$3" # output directory
-genome_config="$4"
+genome_config="$2" # genome config file
+indir="$3" # input directory
+outdir="$4" # output directory
 id_file="$5" # index file (any text file list in indexer/)
 pattern="$6" # SAM/BAM file ending pattern (e.g., .sorted.bam)
 

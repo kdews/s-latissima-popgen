@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=3-0
+#SBATCH --time=2-0
 #SBATCH -J queen
 #SBATCH -o %x.log
 
@@ -26,72 +26,68 @@ outputs...
 
 Analysis:
   indexer/
-    samples_list.txt             indexes sample IDs
-    individuals_file.txt         indexes individual IDs
-    intervals_list.txt           indexes split interval lists
-    gvcf.list                    indexes gVCF files 
-    vcf.list                     indexes VCF files (in numerical order)
+    samples_list.txt            indexes sample IDs
+    individuals_file.txt        indexes individual IDs
+    intervals_list.txt          indexes split interval lists
+    gvcf.list                   indexes gVCF files 
+    vcf.list                    indexes VCF files (in numerical order)
   wgs/                        
-    *.fastq.gz                   FASTQ files renamed to shorter sample IDs 
-                                 (copied from source)
+    *.fastq.gz                  FASTQ files renamed to shorter sample IDs 
+                                (copied from source)
   trimmed_reads/
-    *_val_1/2.fq.gz              reads post trimming by Trim Galore!
+    *_val_1/2.fq.gz             reads post trimming by Trim Galore!
   bams/
-    *.fasta                      reference genome (copied from source)
-    *.fasta.ht2                  indexed reference genome
-    *.fasta.fai                  samtools-indexed reference genome
-    *.dict                       GATK4-style reference genome dictionary
-    *.sorted.bam                 sorted alignment files of trimmed reads to 
-                                 reference genome
-    *.sorted.marked.bam          sorted alignment files, duplicates marked
-    *.sorted.marked.merged.bam   sorted alignment files, merged by individual
+    *.fasta                     reference genome (copied from source)
+    *.fasta.ht2                 indexed reference genome
+    *.fasta.fai                 samtools-indexed reference genome
+    *.dict                      GATK4-style reference genome dictionary
+    *.sorted.bam                sorted alignment files of trimmed reads to 
+                                reference genome
+    *.sorted.marked.bam         sorted alignment files, duplicates marked
+    *.sorted.marked.merged.bam  sorted alignment files, merged by individual
   gvcfs/
-    *.g.vcf.gz                   genome variant call files (gVCFs) for each 
-                                 individual
+    *.g.vcf.gz                  genome variant call files (gVCFs) for each
+                                individual
   split_intervals/
-    *-scattered.interval_list    GATK4-style lists of genomic intervals, split 
-                                 into as close to the desired scatter count as 
-                                 possible without splitting input reference 
-                                 contigs (e.g., scaffolds/chromosomes)
+    *-scattered.interval_list   GATK4-style lists of genomic intervals, split 
+                                into as close to the desired scatter count as 
+                                possible without splitting input reference 
+                                contigs (e.g., scaffolds/chromosomes)
   genomicsdbimport/
-    interval_*/                  GATK4-style GenomicsDB (datastore of variant
-                                 call data from each individual, split into 
-                                 groups of genomic intervals specified in 
-                                 *-scattered.interval_list files)
+    interval_*/                 GATK4-style GenomicsDB (datastore of variant
+                                call data from each individual, split into 
+                                groups of genomic intervals specified in 
+                                *-scattered.interval_list files)
   vcfs/
-    *.vcf.gz                     variant call files (VCFs) for each group of 
-                                 genomic intervals
-  master_{genome_base}.vcf.gz    final VCF file of all samples aligned to the
-                                 reference genome
+    *.vcf.gz                    variant call files (VCFs) for each group of 
+                                genomic intervals
+  master_{genome_base}.vcf.gz   final VCF file of all samples aligned to the
+                                reference genome
 
 Quality control:
   quality_control/
-    *_fastqc.zip/html            FastQC reports for all input FASTQs
-    *_val_1/2_fastqc.zip/html    FASTQC reports for trimmed FASTQs
-    *_trimming_report.txt        Trim Galore! trimming report for each sample
-    *.hisat2.summary             HISAT2 alignment report for each sample
-    *.validate.summary           validation reports of alignment (SAM/BAM) and 
-                                 variant (gVCF/VCF) files
-    multiqc_report.html          MultiQC report summarizing QCs at each step
+    *_fastqc.zip/html           FastQC reports for all input FASTQs
+    *_val_1/2_fastqc.zip/html   FASTQC reports for trimmed FASTQs
+    *_trimming_report.txt       Trim Galore! trimming report for each sample
+    *.hisat2.summary            HISAT2 alignment report for each sample
+    *.validate.summary          validation reports of alignment (SAM/BAM) and 
+                                variant (gVCF/VCF) files
+    multiqc_report.html         MultiQC report summarizing QCs at each step
 
 Logs and checkpoints:
-  queen.log                      log file generated by pipeliner script
+  queen.log                     log file generated by pipeliner script
+  <prefix>.log                  Slurm log files from single job steps
   <prefix>_logs/
-    <prefix>_<#>.out             SLURM log files from inividual job step 
-                                 submissions, named with the convention: 
-                                 <prefix>.sbatch > 
-                                 <prefix>_logs/<prefix>_<#>.out 2>&1
-                                 created upon job completion, where #
-                                 corresponds to array index of <prefix> job step
+    <prefix>_<array_#>.log      Slurm log files from batch job submissions
   checkpoints/
-    <prefix>_<#>.checkpoint      checkpoint file(s) for each job step, named 
-                                 with the convention: 
-                                 <prefix>.sbatch == <prefix>_<#>.checkpoint
-                                 created upon job completion, where # 
-                                 corresponds to array index of <prefix> job step
+    <prefix>_<#>.checkpoint     checkpoint file(s) for each job step, named 
+                                with the convention: 
+                                <prefix>.sbatch == <prefix>_<#>.checkpoint
+                                created upon job completion, where # 
+                                corresponds to array index of <prefix> job step
 
 Temporary directories:
-  <prefix>_tmp                   temporary directory for a given job step
+  <prefix>_tmp                  temporary directory for a given job step
 
 Direct any questions to Kelly DeWeese (kdeweese@mac.com)
 "
@@ -107,6 +103,14 @@ pipeline_config="pipeline.conf"
 user_input_config="user_input.conf"
 # File created by pipeline after parsing input genome filename
 genome_config="genome.conf"
+# Date format for output
+date_fmt="%-I:%M:%S %p (%a %d %b %Y)"
+{
+    echo
+    echo "----------------------------PIPELINE START----------------------------"
+    date +"$date_fmt"
+    echo
+} >> "$pipeline_log"
 
 # Check if scripts directory specified as argument to script
 if [[ -n "$1" ]]
@@ -121,26 +125,28 @@ if [[ -d "$scripts_dir" ]]
 then
     scripts_dir="$(realpath -e "$scripts_dir")"
     scripts_dir="$scripts_dir/"
-    echo "Path to scripts: $scripts_dir..." >> "$pipeline_log"
+    echo "Path to scripts: $scripts_dir" >> "$pipeline_log"
     # Prepend scripts path to config filenames
-    pipeline_config="$scripts_dir/$pipeline_config"
-    user_input_config="$scripts_dir/$user_input_config"
-    genome_config="$scripts_dir/$genome_config"
+    pipeline_config="$(realpath -e "$scripts_dir/$pipeline_config")"
+    user_input_config="$(realpath -e "$scripts_dir/$user_input_config")"
+    genome_config="$(realpath -e "$scripts_dir/$genome_config")"
 else
     echo "Path to scripts (current directory): $(pwd)" >> "$pipeline_log"
 fi
 # Attempt to source config files
-if [[ -f "$pipeline_config" ]] && [[ -f "$user_input_config" ]]
-then
+{
+    echo
     echo "Sourcing config files."
     echo "Pipeline config: $pipeline_config"
-    source "$pipeline_config"
     echo "User input config: $user_input_config"
+    echo
+} >> "$pipeline_log"
+if [[ -f "$pipeline_config" ]] && [[ -f "$user_input_config" ]]
+then
+    source "$pipeline_config"
     source "$user_input_config"
 else
-    echo "Error - verify config file paths:"
-    echo "Pipeline config: $pipeline_config"
-    echo "User input config: $user_input_config"
+    echo "Error - verify config file paths." >> "$pipeline_log"
     exit 1
 fi
 
@@ -157,7 +163,6 @@ else
     st="$(( sleep_time / 60 )) minute(s)"
 fi
 {
-    date
     echo "Wait time between checking for checkpoints set to: $st"
     echo
 } >> "$pipeline_log"
@@ -197,7 +202,7 @@ genome_idx="$bams_dir/$genome_basename_unzip.fai"
 ht2_idx="$bams_dir/$genome_base"
 # Write the derived config for downstream steps
 cat > "$genome_config" <<EOF
-# Generated on "$(date)"
+# Generated at "$(date +"$date_fmt")"
 genome="$genome"
 genome_base="$genome_base"
 genome_local="$genome_local"
@@ -216,149 +221,6 @@ make_logdir () {
     mkdir -p "$logdir"
     echo "$logdir"
 }
-# # Define function for array or non-array submission
-# # that returns the jobid but takes no dependencies
-# no_depend () {
-#     local array_size
-#     local array_indices
-#     local input_sbatch
-#     local prefix
-#     local trailing_args
-#     local logdir
-#     local jobid
-#     local cmd
-#     # Define job type
-#     # Determine array size for all batch jobs (e.g., number of samples)
-#     if [[ "$1" = "--array" ]]
-#     then
-#         # Inputs
-#         array_size="$2"
-#         prefix="$3"
-#         trailing_args=( "${@:4}" )
-#         # Name sbatch file from prefix
-#         input_sbatch="${scripts_dir}$prefix.sbatch"
-#         # Format $array_size into set of indices
-#         if [[ $(echo "$array_size" | sed 's/,/ /g' | wc -w) -eq 1 ]]
-#         then
-#             array_indices="1-$array_size"
-#         else
-#             # If $array_size is comma-separated indices, skip
-#             array_indices="$array_size"
-#         fi
-#         # Create log directory named after prefix
-#         logdir="$(make_logdir "$prefix")"
-#         # Job submission
-#         cmd=(
-#             sbatch
-#             --parsable
-#             -p "$partition"
-#             -J "$prefix"
-#             --array="$array_indices"
-#             -o "$logdir/%x_%a.out"
-#             "$input_sbatch"
-#             "$prefix"
-#             "${trailing_args[@]}"
-#         )
-#         echo "${cmd[*]}" >> "$pipeline_log"
-#         jobid="$("${cmd[@]}")"
-#     else
-#         # Inputs
-#         prefix="$1"
-#         trailing_args=( "${@:2}" )
-#         # Name sbatch file from prefix
-#         input_sbatch="${scripts_dir}$prefix.sbatch"
-#         # Create log directory named after prefix
-#         logdir="$(make_logdir "$prefix")"
-#         # Job submission
-#         cmd=(
-#             sbatch
-#             --parsable
-#             -p "$partition"
-#             -J "$prefix"
-#             -o "$logdir/%x_%j.out"
-#             "$input_sbatch"
-#             "$prefix"
-#             "${trailing_args[@]}"
-#         )
-#         echo "${cmd[*]}" >> "$pipeline_log"
-#         jobid="$("${cmd[@]}")"
-#     fi
-#     echo "$jobid"
-# }
-# # Define function for array or non-array submission
-# # that takes a dependency and returns a jobid
-# depend () {
-#     local array_size
-#     local array_indices
-#     local input_sbatch
-#     local prefix
-#     local dep_jobid
-#     local trailing_args
-#     local logdir
-#     local jobid
-#     local cmd
-#     # Define job type
-#     # Determine array size for all batch jobs (e.g., number of samples)
-#     if [[ "$1" = "--array" ]]
-#     then
-#         # Inputs
-#         array_size="$2"
-#         prefix="$3"
-#         dep_jobid="$4"
-#         trailing_args=( "${@:5}" )
-#         # Name sbatch file from prefix
-#         input_sbatch="${scripts_dir}$prefix.sbatch"
-#         # Format $array_size into set of indices
-#         if [[ $(echo "$array_size" | sed 's/,/ /g' | wc -w) -eq 1 ]]
-#         then
-#             array_indices="1-$array_size"
-#         else
-#             # If $array_size is comma-separated indices, skip
-#             array_indices="$array_size"
-#         fi
-#         # Create log directory named after prefix
-#         logdir="$(make_logdir "$prefix")"
-#         # Job submission
-#         cmd=(
-#             sbatch
-#             --parsable
-#             -p "$partition"
-#             -J "$prefix"
-#             --array="$array_indices"
-#             -o "$logdir/%x_%a.out"
-#             --dependency="afterok:$dep_jobid"
-#             "$input_sbatch"
-#             "$prefix"
-#             "${trailing_args[@]}"
-#         )
-#         jobid="$("${cmd[@]}")"
-#         echo "${cmd[*]}" >> "$pipeline_log"
-#     else
-#         # Inputs
-#         prefix="$1"
-#         dep_jobid="$2"
-#         trailing_args=( "${@:3}" )
-#         # Name sbatch file from prefix
-#         input_sbatch="${scripts_dir}$prefix.sbatch"
-#         # Create log directory named after prefix
-#         logdir="$(make_logdir "$prefix")"
-#         # Job submission
-#         cmd=(
-#             sbatch
-#             --parsable
-#             -p "$partition"
-#             -J "$prefix"
-#             -o "$logdir/%x_%j.out"
-#             --dependency="afterok:$dep_jobid"
-#             "$input_sbatch"
-#             "$prefix"
-#             "${trailing_args[@]}"
-#         )
-#         jobid="$("${cmd[@]}")"
-#         echo "${cmd[*]}" >> "$pipeline_log"
-#     fi
-#     echo "$jobid"
-# }
 # Define function to list checkpoint files based on given prefix
 ls_check () {
     local prefix
@@ -366,7 +228,7 @@ ls_check () {
     if [[ -z "$prefix" ]]
     then
         {
-            date
+            date +"$date_fmt"
             echo "Error - no prefix given to 'ls_check'."
         } >> "$pipeline_log"
         exit 1
@@ -380,7 +242,7 @@ rm_check () {
     if [[ -z "$prefix" ]]
     then
         {
-            date
+            date +"$date_fmt"
             echo "Error - no prefix given to 'rm_check'."
         } >> "$pipeline_log"
         exit 1
@@ -397,7 +259,7 @@ miss_check () {
     if [[ $# -ne 2 ]]
     then
         {
-            date
+            date +"$date_fmt"
             echo "Error - 'miss_check' expected 2 arguments but received $#."
             echo "Arguments: $*"
         } >> "$pipeline_log"
@@ -423,8 +285,8 @@ miss_check () {
 pipeliner () {
     local array_size
     local prefix
-    local trailing_args
-    local input_sbatch
+    local step_args
+    local sbatch_file
     local logdir
     local logfile
     local num_checks
@@ -435,22 +297,22 @@ pipeliner () {
     # Parse arguments to function
     array_size="$1"
     prefix="$2"
-    trailing_args=( "${@:3}" )
+    step_args=( "$prefix" "$genome_config" "${@:3}" )
 
     # Log call to function
     echo "pipeliner $*" >> "$pipeline_log"
     
     # Name sbatch file from prefix
-    input_sbatch="${scripts_dir}$prefix.sbatch"
+    sbatch_file="${scripts_dir}$prefix.sbatch"
 
-    # Create log directory named after prefix
-    logdir="$(make_logdir "$prefix")"
     # Name log file(s) based on array size
     if (( array_size > 1 ))
     then
+        # Create log directory named after prefix
+        logdir="$(make_logdir "$prefix")"
         logfile="$logdir/%x_%a.log"
     else
-        logfile="$logdir/%x.log"
+        logfile="%x.log"
     fi
 
     # Check for any existing checkpoints for prefix
@@ -485,125 +347,48 @@ pipeliner () {
     # Job submission
     cmd=(
         sbatch
-        # --parsable
+        --parsable
         -p "$partition"
         -J "$prefix"
         "$array_flag"
         -o "$logfile"
-        "$input_sbatch"
-        "$prefix"
-        "${trailing_args[@]}"
+        "$sbatch_file"
+        "${step_args[@]}"
     )
     echo "${cmd[*]}" >> "$pipeline_log"
-    "${cmd[@]}"
-    # echo "$jobid"
-    # jobid="$(no_depend "$array_flag" "$prefix" "${trailing_args[@]}")"
+    jobid="$("${cmd[@]}")"
+    echo "Submitted batch job $jobid" >> "$pipeline_log"
 }
 
 # Run pipeline
 # Define associative array containing arguments to each step of pipeline
-declare -A PIPELINE_STEPS=(
-#   [#_step]="<prefix>
-#     [--array]|\
-#     <input_dir>|<output_dir>|<genome_config>|\
-#     [index_file]|\
-#     [extra_args]"
-  [1_prep_ref]="prep_ref|\
-    $bams_dir|$bams_dir|$genome_config"
-  [2_rename]="rename|\
-    $raw_reads_dir|$samples_dir|$genome_config|\
-    $samples_list|\
-    $scripts_dir"
-#   [3_fastqc]="fastqc|\
-#     --array|\
-#     $samples_dir|$qc_dir|$genome_config|\
-#     $samples_list"
-#   [4_trim_galore]="trim_galore|\
-#     --array|\
-#     $samples_dir|$trimmed_dir|$genome_config|\
-#     $samples_list|\
-#     $qc_dir"
-#   [5_build_hisat2]="build_hisat2|\
-#     $bams_dir|$bams_dir|$genome_config"
-#   [6_hisat2]="hisat2|\
-#     --array|\
-#     $trimmed_dir|$bams_dir|$genome_config|\
-#     $samples_list|\
-#     $qc_dir|\
-#     $indiv_list"
-#   [7_validate_sams]="validate_sams|\
-#     --array|\
-#     $bams_dir|$qc_dir|$genome_config|\
-#     $samples_list|\
-#     .sorted.bam"
-#   [8_collect_alignment_summary_metrics]="collect_alignment_summary_metrics|\
-#     --array|\
-#     $bams_dir|$qc_dir|$genome_config|\
-#     $samples_list"
-#   [9_collect_wgs_metrics]="collect_wgs_metrics|\
-#     --array|\
-#     $bams_dir|$qc_dir|$genome_config|\
-#     $samples_list"
-#   [10_mark_dupes]="mark_dupes|\
-#     --array|\
-#     $bams_dir|$bams_dir|$genome_config|\
-#     $samples_list|\
-#     $qc_dir"
-#   [11_validate_sams]="validate_sams|\
-#     --array|\
-#     $bams_dir|$qc_dir|$genome_config|\
-#     $samples_list|\
-#     .marked.sorted.bam"
-#   [12_collapse_bams]="collapse_bams|\
-#     --array|\
-#     $bams_dir|$bams_dir|$genome_config|\
-#     $indiv_list"
-#   [13_validate_sams]="validate_sams|\
-#     --array|\
-#     $bams_dir|$qc_dir|$genome_config|\
-#     $indiv_list|\
-#     .merged.marked.sorted.bam"
-#   [14_index_bams]="index_bams|\
-#     --array|\
-#     $bams_dir|$bams_dir|$genome_config|\
-#     $indiv_list"
-#   [15_haplotype_caller]="haplotype_caller|\
-#     --array|\
-#     $bams_dir|$gvcfs_dir|$genome_config|\
-#     $indiv_list"
-#   [16_validate_variants]="validate_variants|\
-#     --array|\
-#     $gvcfs_dir|$qc_dir|$genome_config|\
-#     $gvcf_list"
-#   [17_split_intervals]="split_intervals|\
-#     $split_intervals_dir|$split_intervals_dir|$genome_config|\
-#     $intervals_list|\
-#     $scatter"
-#   [18_genomicsdbimport]="genomicsdbimport|\
-#     --array|\
-#     $gvcfs_dir|$genomicsdbimport_dir|$genome_config|\
-#     $intervals_list|\
-#     $gvcf_list"
-#   [19_genotype_gvcfs]="genotype_gvcfs|\
-#     --array|\
-#     $gvcfs_dir|$vcfs_dir|$genome_config|\
-#     $indiv_list"
-#   [20_sort_vcf]="sort_vcf|\
-#     --array|\
-#     $vcfs_dir|$vcfs_dir|$genome_config|\
-#     $vcf_list"
-#   [21_validate_variants]="validate_variants|\
-#     --array|\
-#     $vcfs_dir|$qc_dir|$genome_config|\
-#     $vcf_list"
-#   [22_merge_vcfs]="merge_vcfs|\
-#     $vcfs_dir|$vcfs_dir|$genome_config|\
-#     $vcf_list"
-#   [23_multiqc]="multiqc|\
-#     $qc_dir|$qc_dir|$scripts_dir"
+PIPELINE_STEPS=(
+#   [#_step]="<prefix>|[--array]|<input_dir>|<output_dir>|[index_file]|[extra_args]"
+  "prep_ref|$bams_dir|$bams_dir"
+  "rename|$raw_reads_dir|$samples_dir|$samples_list|$scripts_dir"
+  "fastqc|--array|$samples_dir|$qc_dir|$samples_list"
+  "trim_galore|--array|$samples_dir|$trimmed_dir|$samples_list|$qc_dir"
+  "build_hisat2|$bams_dir|$bams_dir"
+  "hisat2|--array|$trimmed_dir|$bams_dir|$samples_list|$qc_dir|$indiv_list"
+  "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
+  "collect_alignment_summary_metrics|--array|$bams_dir|$qc_dir|$samples_list"
+  "collect_wgs_metrics|--array|$bams_dir|$qc_dir|$samples_list"
+  "mark_dupes|--array|$bams_dir|$bams_dir|$samples_list|$qc_dir"
+  "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.marked.sorted.bam"
+  "collapse_bams|--array|$bams_dir|$bams_dir|$indiv_list"
+  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.merged.marked.sorted.bam"
+  "index_bams|--array|$bams_dir|$bams_dir|$indiv_list"
+  "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
+  "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_list"
+  "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"
+  "genomicsdbimport|--array|$gvcfs_dir|$genomicsdbimport_dir|$intervals_list|$gvcf_list"
+  "genotype_gvcfs|--array|$gvcfs_dir|$vcfs_dir|$indiv_list"
+  "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$vcf_list"
+  "validate_variants|--array|$vcfs_dir|$qc_dir|$vcf_list"
+  "merge_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
+  "multiqc|$qc_dir|$qc_dir|$scripts_dir"
 )
 
-echo "${PIPELINE_STEPS[*]}"
 for step in "${!PIPELINE_STEPS[@]}"
 do
     # Wait to submit next step until previous completes
@@ -613,38 +398,85 @@ do
         until [[ "$(ls_check "$dep_prefix" | wc -l)" -eq "$dep_size" ]]
         do
             {
-                date
-                echo "Waiting for completion of $dep_prefix step."
+                date +"$date_fmt"
+                echo "Waiting $st for completion of $dep_prefix step."
             } >> "$pipeline_log"
             sleep "$sleep_time"
         done
+        # After hisat2 step: sort individual ID list
+        if [[ "$dep_prefix" = "hisat2" ]] && [[ -f "$indiv_list" ]]
+        then
+            echo "Sorting $indiv_list for unique invidual IDs." >> "$pipeline_log"
+            sort -u "$indiv_list" > "${indiv_list}_sorted"
+            mv "${indiv_list}_sorted" "$indiv_list"
+        elif [[ "$dep_prefix" = "hisat2" ]] && [[ ! -f "$indiv_list" ]]
+        then
+            echo "Error - invidual ID list ($indiv_list) not found." >> "$pipeline_log"
+            exit 1
+        fi
+        # After haplotype_caller step: create gVCF list
+        if [[ "$dep_prefix" = "haplotype_caller" ]]
+        then
+            echo "Creating list of gVCFs: $gvcf_list" >> "$pipeline_log"
+            find "$gvcfs_dir" -type f -name "*$genome_base.g.vcf.gz" > "$gvcf_list"
+            if [[ "$(wc -l < "$gvcf_list")" -ne "$dep_size" ]]
+            then
+                echo "Error - incorrect # files in $gvcf_list" >> "$pipeline_log"
+                exit 1
+            fi
+        fi
+        # After genotype_gvcfs step: create VCF list
+        if [[ "$dep_prefix" = "genotype_gvcfs" ]]
+        then
+            echo "Creating list of VCF files: $vcf_list" >> "$pipeline_log"
+            find "$vcfs_dir" -type f -name "*$genome_base.vcf.gz" > "$vcf_list"
+            if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
+            then
+                echo "Error - incorrect # files in $vcf_list"  >> "$pipeline_log"
+                exit 1
+            fi
+        fi
+        # After sort_vcf step: overwrite VCF list
+        if [[ "$dep_prefix" = "sort_vcf" ]]
+        then
+            echo "Overwritting VCF list: $vcf_list" >> "$pipeline_log"
+            find "$vcfs_dir" -type f -name "*$genome_base.sorted.vcf.gz" > "$vcf_list"
+            if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
+            then
+                echo "Error - incorrect # files in $vcf_list" >> "$pipeline_log"
+                exit 1
+            fi
+        fi
     fi
-    {
-        date
-        echo "Running step: $step"
-    } >> "$pipeline_log"
 
     # Convert stored string into array from separator
     IFS="|" read -r -a args <<< "${PIPELINE_STEPS[$step]}"
+
+    # Log step
+    prefix="${args[0]}"
+    {
+        date +"$date_fmt"
+        echo "Running step #$step: $prefix"
+    } >> "$pipeline_log"
 
     # Parse batch array jobs
     if [[ "${args[1]}" = "--array" ]]
     then
         # Set array size based on index file length
-        index_file="${args[5]}"
+        index_file="${args[4]}"
         if [[ -f "$index_file" ]]
         then
             array_size="$(wc -l < "$index_file")"
-            args=( "${args[0]}" "${args[@]:2}" )
+            args=( "$prefix" "${args[@]:2}" )
         else
-            echo "Error - could not find index file ($index_file) for array."
+            echo "Error - index file ($index_file) not found."  >> "$pipeline_log"
             exit 1
         fi
     else
         # Set array size
         array_size=1
     fi
-    "Array size set to: $array_size" >> "$pipeline_log"
+    echo "Array size set to: $array_size" >> "$pipeline_log"
 
     # Run pipeline step
     pipeliner "$array_size" "${args[@]}"
@@ -652,7 +484,7 @@ do
     # Update dependency info for next step
     dep_prefix="$prefix"
     dep_size="$array_size"
-
+    
     echo >> "$pipeline_log"
 done
 
