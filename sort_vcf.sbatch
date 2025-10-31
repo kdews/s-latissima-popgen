@@ -7,7 +7,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -22,10 +22,10 @@ mkdir -p "$tempdir"
 # Source genome config
 if [[ -f "$genome_config" ]]
 then
-    source "$genome_config"
+  source "$genome_config"
 else
-    echo "Error on source of genome config: $genome_config"
-    exit 1
+  echo "Error on source of genome config: $genome_config"
+  exit 1
 fi
 
 # Parse input VCF name
@@ -38,30 +38,32 @@ out_vcf="$outdir/$in_vcf_base.sorted.vcf.gz"
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
-gatk --version
+gatk --version || exit 1
 
 # Run GATK4's SortVcf
 cmd=(
-    gatk SortVcf
-    --java-options "-Xms20g -Xmx20g"
-    -R "$genome_local_unzip"
-    -I "$in_vcf"
-    -O "$out_vcf"
-    --TMP_DIR "$tempdir"
+  gatk SortVcf
+  --java-options "-Xms20g -Xmx20g"
+  -R "$genome_local_unzip"
+  -I "$in_vcf"
+  -O "$out_vcf"
+  --TMP_DIR "$tempdir"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Mark time at completion
+echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$out_vcf" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  exit 0
 else
-    echo "Error - sorted VCF ($out_vcf) not found for $in_vcf"
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - sorted VCF ($out_vcf) not found for $in_vcf"
+  echo "Checkpoint not created."
+  exit 1
 fi
-

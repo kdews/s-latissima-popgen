@@ -8,7 +8,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -39,11 +39,11 @@ mkdir -p "$outdir"
 
 # Run rename Python script
 cmd=(
-    python
-    "${scripts_dir}rename_MO_KD.py"
-    "$og_file"
-    "$outdir"
-    "$rsync_list"
+  python
+  "${scripts_dir}rename_MO_KD.py"
+  "$og_file"
+  "$outdir"
+  "$rsync_list"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -52,7 +52,7 @@ unset cmd
 # Load GNU parallel
 module purge
 module load ver/2506 gcc/14.3.0 parallel
-parallel --version
+parallel --version || exit 1
 
 # Run rsync commands in parallel
 parallel -j "$SLURM_CPUS_PER_TASK" < "$rsync_list"
@@ -60,18 +60,21 @@ parallel -j "$SLURM_CPUS_PER_TASK" < "$rsync_list"
 # Make $samples_list from FASTQs in $outdir
 echo "Creating $samples_list"
 find "$outdir" -type f -name "*.fastq.gz" \
-    | sed -E 's|.*/||; s/_R[12]\.fastq.*//' \
-    | sort -u > "$samples_list"
+  | sed -E 's|.*/||; s/_R[12]\.fastq.*//' \
+  | sort -u > "$samples_list"
+
+# Mark time at completion
+echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$samples_list" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/$prefix.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/$prefix.checkpoint"
+  exit 0
 else
-    echo "Error - no samples list ($samples_list) found."
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - no samples list ($samples_list) found."
+  echo "Checkpoint not created."
+  exit 1
 fi

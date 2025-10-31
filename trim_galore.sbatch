@@ -8,7 +8,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -23,52 +23,72 @@ mkdir -p "$qc_dir"
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
 reads1="$indir/${sample_id}_R1.fastq.gz"
 reads2="$indir/${sample_id}_R2.fastq.gz"
+# Output trimmed reads
+trim1="$outdir/${sample_id}_R1_val_1.fq.gz"
+trim2="$outdir/${sample_id}_R2_val_2.fq.gz"
+# Output trimming reports
+report1="$outdir/${sample_id}_R1.fastq.gz_trimming_report.txt"
+report2="$outdir/${sample_id}_R2.fastq.gz_trimming_report.txt"
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
 if [[ -f "$cond" ]]
 then
-    source "$cond"
+  source "$cond"
 else
-    echo "Error on source of $cond"
-    exit 1
+  echo "Error on source of $cond"
+  exit 1
 fi
 
 # Load Trim Galore!
-conda activate trimgalore
-trim_galore --version
+conda activate trim_galore
+trim_galore --version || exit 1
 
 # Run Trim Galore!
+echo
 echo "Running Trim Galore! on read files associated with sample ID: $sample_id"
 echo "1: $reads1"
 echo "2: $reads2"
+echo
 cmd=(
-    trim_galore
-    --paired
-    --phred33
-    --output_dir "$qc_dir"
-    --length 36
-    --stringency 1
-    -e 0.1
-    -j 4
-    --fastqc_args "-t $SLURM_CPUS_PER_TASK"
-    "$reads1"
-    "$reads2"
+  trim_galore
+  --paired
+  --output_dir "$outdir"
+  --length 36
+  --stringency 1
+  -e 0.1
+  # "--cores 4 could be a sweet spot, anything above has diminishing returns"
+  --cores 4
+  --fastqc_args "-t $SLURM_CPUS_PER_TASK -o $qc_dir"
+  "$reads1"
+  "$reads2"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
 
+# Mark time at completion
+echo; date; echo
+
 # Checkpoint
 mkdir -p checkpoints
-if [[ "$(find "$qc_dir" -type f -name "${sample_id}*val*" | wc -l)" -eq 6 ]]
+if [[ -f "$trim1" ]] && [[ -f "$trim2" ]]
 then
-    echo "Read trimming and FastQC of trimmed reads completed for sample ID: $sample_id"
-    echo "Creating checkpoint."
-    mv "$qc_dir/${sample_id}"*"fq.gz" "$outdir"
-    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-    exit 0
+  echo "Trimming and FastQC of trimmed reads completed for sample ID: $sample_id"
+  if [[ -f "$report1" ]] && [[ -f "$report2" ]]
+  then
+    echo "Moving trimming reports to QC directory ($qc_dir/):"
+    echo "$report1"
+    echo "$report2"
+    mv "$report1" "$qc_dir/"
+    mv "$report2" "$qc_dir/"
+  else
+    echo "No trimming reports found for sample ID: $sample_id"
+  fi
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  exit 0
 else
-    echo "Error trimming reads for sample ID: $sample_id"
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error trimming reads for sample ID: $sample_id"
+  echo "Checkpoint not created."
+  exit 1
 fi

@@ -7,7 +7,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -18,51 +18,54 @@ multiqc_config="multiqc_config.yaml"
 # If $scripts_dir exists, prepend path to config
 if [[ -d "$scripts_dir" ]]
 then
-    multiqc_config="${scripts_dir}${multiqc_config}"
+  multiqc_config="${scripts_dir}${multiqc_config}"
 fi
 
 # Verify input directory exists
 if [[ -d "$indir" ]]
 then
-    echo "Running MultiQC on: $indir"
+  echo "Running MultiQC on: $indir"
 else
-    echo "Error - input directory to MultiQC ($indir), not found."
+  echo "Error - input directory to MultiQC ($indir), not found."
 fi
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
 if [[ -f "$cond" ]]
 then
-    source "$cond"
+  source "$cond"
 else
-    echo "Error on source of $cond"
-    exit 1
+  echo "Error on source of $cond"
+  exit 1
 fi
 
 # Load multiqc
 conda activate multiqc
-multiqc --version
+multiqc --version || exit 1
 
 # Run MultiQC
 cmd=(
-    multiqc
-    -c "$multiqc_config"
-    -o "$outdir"
-    "$indir"
+  multiqc
+  -c "$multiqc_config"
+  -o "$outdir"
+  "$indir"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Mark time at completion
+echo; date; echo
 
 # Checkpoints
 mkdir -p checkpoints
 if [[ -f ${qc_dir}/multiqc_report.html  ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/$prefix.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/$prefix.checkpoint"
+  exit 0
 else
-    echo "Error - MultiQC report not created."
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - MultiQC report not created."
+  echo "Checkpoint not created."
+  exit 1
 fi
 

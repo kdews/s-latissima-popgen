@@ -2,7 +2,7 @@
 #SBATCH --mem=8gb
 #SBATCH --time=05:00:00
 
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -15,10 +15,10 @@ mkdir -p "$outdir"
 # Source genome config
 if [[ -f "$genome_config" ]]
 then
-    source "$genome_config"
+  source "$genome_config"
 else
-    echo "Error on source of genome config: $genome_config"
-    exit 1
+  echo "Error on source of genome config: $genome_config"
+  exit 1
 fi
 
 # Parse ID from index file
@@ -32,28 +32,31 @@ out_summary="$outdir/$infile_basename.validate.summary"
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
-gatk --version
+gatk --version || exit 1
 
 # Run GATK4's ValidateSamFile in summary mode
 cmd=(
-    gatk ValidateSamFile
-    -M SUMMARY
-    -R "$genome_local_unzip"
-    -I "$infile"
-    -O "$out_summary"
+  gatk ValidateSamFile
+  -M SUMMARY
+  -R "$genome_local_unzip"
+  -I "$infile"
+  -O "$out_summary"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Mark time at completion
+echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$out_summary" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  exit 0
 else
-    echo "Error - ValidateSamFile summary for BAM ($infile) not found."
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - ValidateSamFile summary for BAM ($infile) not found."
+  echo "Checkpoint not created."
+  exit 1
 fi

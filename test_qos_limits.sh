@@ -5,4 +5,3 @@
 
 echo "Parition: $SLURM_JOB_PARTITION"
 echo "Array ID: $SLURM_ARRAY_TASK_ID"
-myqueue

@@ -8,7 +8,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -17,10 +17,10 @@ indiv_list="$5" # list of individual IDs
 # Source genome config
 if [[ -f "$genome_config" ]]
 then
-    source "$genome_config"
+  source "$genome_config"
 else
-    echo "Error on source of genome config: $genome_config"
-    exit 1
+  echo "Error on source of genome config: $genome_config"
+  exit 1
 fi
 
 # Parse individual ID
@@ -40,26 +40,29 @@ fi
 
 # Load samtools
 conda activate samtools
-samtools --version
+samtools --version || exit 1
 
 # Index BAM with samtools
 cmd=(
-    samtools index
-    -@ "$SLURM_CPUS_PER_TASK"
-    "$in_bam"
+  samtools index
+  -@ "$SLURM_CPUS_PER_TASK"
+  "$in_bam"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Mark time at completion
+echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$in_bam.bai" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  exit 0
 else
-    echo "Error - no BAM index ($in_bam.bai) found."
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - no BAM index ($in_bam.bai) found."
+  echo "Checkpoint not created."
+  exit 1
 fi

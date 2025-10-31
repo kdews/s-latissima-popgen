@@ -8,7 +8,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -27,42 +27,45 @@ mkdir -p "$outdir"
 cond=~/.conda_for_sbatch.sh
 if [[ -f "$cond" ]]
 then
-  	source "$cond"
+  source "$cond"
 else
-	echo "Error on source of $cond"
-	exit 1
+  echo "Error on source of $cond"
+  exit 1
 fi
 
 # Load FASTQC
 conda activate fastqc
-fastqc --version
+fastqc --version || exit 1
 
 # Run FASTQC
 echo "Running FASTQC on read files associated with sample ID: $sample_id"
 echo "1: $reads1"
 echo "2: $reads2"
 cmd=(
-    fastqc
-    -t "$SLURM_CPUS_PER_TASK"
-    -o "$outdir"
-    "$reads1"
-    "$reads2"
+  fastqc
+  -t "$SLURM_CPUS_PER_TASK"
+  -o "$outdir"
+  "$reads1"
+  "$reads2"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
 
+# Mark time at completion
+echo; date; echo
+
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$outdir/${sample_id}_R1_fastqc.zip" ]] && \
-    [[ -f "$outdir/${sample_id}_R2_fastqc.zip" ]] && \
-    [[ -f "$outdir/${sample_id}_R1_fastqc.html" ]] && \
-    [[ -f "$outdir/${sample_id}_R2_fastqc.html" ]]
+  [[ -f "$outdir/${sample_id}_R2_fastqc.zip" ]] && \
+  [[ -f "$outdir/${sample_id}_R1_fastqc.html" ]] && \
+  [[ -f "$outdir/${sample_id}_R2_fastqc.html" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint"
+  exit 0
 else
-    echo "Error - not all FastQC files created for sample ID: $sample_id"
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - not all FastQC files created for sample ID: $sample_id"
+  echo "Checkpoint not created."
+  exit 1
 fi

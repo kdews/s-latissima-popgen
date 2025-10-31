@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=1-0
+#SBATCH --time=10:00:00
 #SBATCH --mem=50g
 #SBATCH --cpus-per-task=12
 
@@ -8,7 +8,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -23,21 +23,16 @@ mkdir -p "$qc_dir"
 # Source genome config
 if [[ -f "$genome_config" ]]
 then
-    source "$genome_config"
+  source "$genome_config"
 else
-    echo "Error on source of genome config: $genome_config"
-    exit 1
+  echo "Error on source of genome config: $genome_config"
+  exit 1
 fi
-# # Parse genome filename
-# genome_basename="$(basename "$genome")"
-# genome_base="${genome_basename%%.*}"
-# # HISAT2 index file prefix
-# ht2_idx="$outdir/$genome_base"
 
-# Parse sample ID and read filenames
+# Parse sample ID and trimmed read filenames
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
-reads1="$indir/${sample_id}_R1.fastq.gz"
-reads2="$indir/${sample_id}_R2.fastq.gz"
+reads1="$indir/${sample_id}_R1_val_1.fq.gz"
+reads2="$indir/${sample_id}_R2_val_2.fq.gz"
 # Output BAM named from sample ID
 out_bam="$outdir/${sample_id}_$genome_base.sorted.bam"
 # Output QC summary file named from sample ID
@@ -50,15 +45,16 @@ mem_per_thread="$(( 9 * SLURM_MEM_PER_NODE / SLURM_JOB_CPUS_PER_NODE / 10000 ))G
 cond=~/.conda_for_sbatch.sh
 if [[ -f "$cond" ]]
 then
-    source "$cond"
+  source "$cond"
 else
-    echo "Error on source of $cond"
-    exit 1
+  echo "Error on source of $cond"
+  exit 1
 fi
 
 # Load HISAT2
 conda activate hisat2
-hisat2 --version
+hisat2 --version || exit 1
+samtools --version || exit 1
 
 # Define read groups for SAM headers from sample ID and FASTQ file read IDs
 echo "Parsing read groups from sample ID ($sample_id) and associated read files:"
@@ -91,50 +87,47 @@ rg_pl="ILLUMINA"
 echo "Read group platform = PL:$rg_pl"
 
 # Run HISAT2 and pipe output to samtools sort
+echo
 echo "Running HISAT2 on read files associated with sample ID: $sample_id"
 echo "1: $reads1" 
 echo "2: $reads2"
 hisat2_cmd=(
-    hisat2
-    -p "$SLURM_CPUS_PER_TASK"
-    --time
-    -x "$ht2_idx"
-    -1 "$reads1"
-    -2 "$reads2"
-    --rg-id="$rg_id"
-    --rg "SM:$rg_sm"
-    --rg "LB:$rg_lb"
-    --rg "PU:$rg_pu"
-    --rg "PL:$rg_pl"
-    --summary-file="$out_summary"
+  hisat2
+  -p "$SLURM_CPUS_PER_TASK"
+  --time
+  -x "$ht2_idx"
+  -1 "$reads1"
+  -2 "$reads2"
+  --rg-id "$rg_id"
+  --rg "SM:$rg_sm"
+  --rg "LB:$rg_lb"
+  --rg "PU:$rg_pu"
+  --rg "PL:$rg_pl"
+  --new-summary
+  --summary-file "$out_summary"
 )
 samtools_cmd=(
-    samtools sort -b
-    -@ "$SLURM_CPUS_PER_TASK"
-    -m "$mem_per_thread"
-    -O "$out_bam"
+  samtools sort
+  -@ "$SLURM_CPUS_PER_TASK"
+  -m "$mem_per_thread"
+  -O bam
+  -o "$out_bam"
 )
 echo "${hisat2_cmd[*]} | ${samtools_cmd[*]}"
 "${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
 
-# hisat2 -p ${SLURM_CPUS_PER_TASK} --time \
-# -x $genome_base -1 ${reads1} -2 ${reads2} \
-# --rg-id=${rg_id} --rg SM:${rg_sm} --rg LB:${rg_lb} \
-# --rg PU:${rg_pu} --rg PL:${rg_pl} \
-# --summary-file=${qc_dir}/${sample_id}_${genome_base}.hisat2_rerun.summary | \
-# samtools sort -b -@ ${SLURM_CPUS_PER_TASK} \
-# -m ${mem_per_thread} \
-# -O ${sample_id}_${genome_base}.sorted.bam
+# Mark time at completion
+echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$out_bam" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  exit 0
 else
-    echo "Error - alignment not completed for sample ID: $sample_id"
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - alignment not completed for sample ID: $sample_id"
+  echo "Checkpoint not created."
+  exit 1
 fi

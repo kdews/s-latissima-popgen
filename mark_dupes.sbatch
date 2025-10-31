@@ -7,7 +7,7 @@ date
 echo
 
 # Input
-prefix="$1" # sbatch filename without file extensions
+prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
@@ -21,10 +21,10 @@ mkdir -p "$qc_dir"
 # Source genome config
 if [[ -f "$genome_config" ]]
 then
-    source "$genome_config"
+  source "$genome_config"
 else
-    echo "Error on source of genome config: $genome_config"
-    exit 1
+  echo "Error on source of genome config: $genome_config"
+  exit 1
 fi
 
 # Parse sample ID
@@ -39,28 +39,31 @@ dupe_metrics="$qc_dir/${sample_id}_$genome_base.mark_dupes.metrics"
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
-gatk --version
+gatk --version || exit 1
 
 # Run GATK4's MarkDuplicates
 cmd=(
-    gatk MarkDuplicates
-    -I" $in_bam"
-    -O "$out_bam"
-    -M "$dupe_metrics"
-    --VALIDATION_STRINGENCY LENIENT
+  gatk MarkDuplicates
+  -I" $in_bam"
+  -O "$out_bam"
+  -M "$dupe_metrics"
+  --VALIDATION_STRINGENCY LENIENT
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Mark time at completion
+echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
 if [[ -f "$out_bam" ]]
 then
-    echo "Creating checkpoint."
-    touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-    exit 0
+  echo "Creating checkpoint."
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  exit 0
 else
-    echo "Error - duplicate-marked BAM not found for sample ID: $sample_id"
-    echo "Checkpoint not created."
-    exit 1
+  echo "Error - duplicate-marked BAM not found for sample ID: $sample_id"
+  echo "Checkpoint not created."
+  exit 1
 fi
