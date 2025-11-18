@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J collect_alignment_summary_metrics
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=02:00:00
 #SBATCH --mem=2gb
 

@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J collapse_bams
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=50g
 #SBATCH --time=5-0
 #SBATCH --cpus-per-task=2

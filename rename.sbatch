@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J rename
+#SBATCH -o %x.log
 #SBATCH --mem=20gb
 #SBATCH --time=03:30:00
 #SBATCH --cpus-per-task=20
@@ -21,13 +23,12 @@ rsync_list="$outdir/rsync_list.txt" # list of rsync commands
 
 # List original FASTQ paths
 cmd=(
-   find
-   "$indir"
-   -mindepth 2
-   -maxdepth 2
-   -type f
-   -name "*.fastq.gz"
-   -exec realpath -e {} \;
+  find
+  "$indir"
+  -maxdepth 2
+  -type f
+  -name "*.fastq.gz"
+  -exec realpath -e {} \;
 )
 echo "${cmd[*]} > $og_file"
 "${cmd[@]}" > "$og_file"

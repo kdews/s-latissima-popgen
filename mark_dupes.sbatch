@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J mark_dupes
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=02:00:00
 #SBATCH --mem=15gb
 

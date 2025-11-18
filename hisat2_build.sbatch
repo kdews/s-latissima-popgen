@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J hisat2_build
+#SBATCH -o %x.log
 #SBATCH --mem=40gb
 #SBATCH --time=01:00:00
 #SBATCH --cpus-per-task=12

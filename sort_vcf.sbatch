@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J sort_vcf
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=25g
 #SBATCH --time=00:30:00
 

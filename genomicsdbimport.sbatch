@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J genomicsdbimport
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=50g
 #SBATCH --time=1-0
 

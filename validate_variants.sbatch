@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J validate_variants
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=8gb
 #SBATCH --time=05:00:00
 

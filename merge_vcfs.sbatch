@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J merge_vcfs
+#SBATCH -o %x.log
 #SBATCH --mem=100g
 #SBATCH --time=4-0
 

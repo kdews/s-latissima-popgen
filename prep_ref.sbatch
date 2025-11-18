@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J prep_ref
+#SBATCH -o %x.log
 #SBATCH --mem=500mb
 #SBATCH --time=02:00:00
 

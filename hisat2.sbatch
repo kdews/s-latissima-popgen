@@ -1,7 +1,9 @@
 #!/bin/bash
-#SBATCH --time=10:00:00
-#SBATCH --mem=50g
-#SBATCH --cpus-per-task=12
+#SBATCH -J hisat2
+#SBATCH -o %x_logs/%x_%a.log
+#SBATCH --time=02:00:00
+#SBATCH --mem=45gb
+#SBATCH --cpus-per-task=16
 
 # Print date and time
 date
@@ -33,13 +35,24 @@ fi
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
 reads1="$indir/${sample_id}_R1_val_1.fq.gz"
 reads2="$indir/${sample_id}_R2_val_2.fq.gz"
-# Output BAM named from sample ID
-out_bam="$outdir/${sample_id}_$genome_base.sorted.bam"
-# Output QC summary file named from sample ID
-out_summary="$qc_dir/${sample_id}_$genome_base.hisat2.summary"
+# Create ID for BAM files
+bam_id="${sample_id}_$genome_base"
+# Temporary BAM filename before GATK4 fixes
+tmp1_bam="$bam_id.sorted.pre.bam"
+# Temporary BAM filename after GATK4 FixMateInformation
+tmp2_bam="$bam_id.sorted.fm.bam"
+# Output final sorted BAM with GATK4 read mate & NM tag fixes
+out_bam="$bam_id.sorted.bam"
+# Output QC summary file named from BAM ID
+out_summary="$qc_dir/$bam_id.hisat2.summary"
 
-# Define memory per thread for samtools sort
-mem_per_thread="$(( 9 * SLURM_MEM_PER_NODE / SLURM_JOB_CPUS_PER_NODE / 10000 ))G"
+# Define threads for each command
+hisat_thr="$(( 3 * SLURM_CPUS_PER_TASK / 4 ))"
+samtools_thr="$(( 1 * SLURM_CPUS_PER_TASK / 4 ))"
+# Define memory for GATK4 (90% of total)
+gatk_mem="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+# Define memory per thread for samtools sort (90% of total to avoid OOM error)
+mem_per_thread="$(( 9 * SLURM_MEM_PER_NODE / SLURM_CPUS_PER_TASK / 10 ))M"
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
@@ -86,14 +99,14 @@ echo "Read group library identifier = LB:$rg_lb"
 rg_pl="ILLUMINA"
 echo "Read group platform = PL:$rg_pl"
 
-# Run HISAT2 and pipe output to samtools sort
+# Run HISAT2 alignment
 echo
 echo "Running HISAT2 on read files associated with sample ID: $sample_id"
 echo "1: $reads1" 
 echo "2: $reads2"
 hisat2_cmd=(
   hisat2
-  -p "$SLURM_CPUS_PER_TASK"
+  -p "$hisat_thr"
   --time
   -x "$ht2_idx"
   -1 "$reads1"
@@ -106,22 +119,70 @@ hisat2_cmd=(
   --new-summary
   --summary-file "$out_summary"
 )
+# Sort by coordinate (default) and convert SAM to BAM
 samtools_cmd=(
   samtools sort
-  -@ "$SLURM_CPUS_PER_TASK"
+  -@ "$samtools_thr"
   -m "$mem_per_thread"
   -O bam
-  -o "$out_bam"
+  -o "$TMPDIR/$tmp1_bam"
 )
 echo "${hisat2_cmd[*]} | ${samtools_cmd[*]}"
 "${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
+
+# Load GATK4
+module purge
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+gatk --version || exit 1
+
+# Fix read mate pairs with GATK4
+fixmate_cmd=(
+  gatk
+  --java-options "-Xmx$gatk_mem"
+  FixMateInformation
+  -R "$genome_local_unzip"
+  --TMP_DIR "$TMPDIR"
+  -I "$TMPDIR/$tmp1_bam"
+  -O "$TMPDIR/$tmp2_bam"
+)
+echo "${fixmate_cmd[*]}"
+"${fixmate_cmd[@]}"
+
+# Recalculate NM tags with GATK4
+set_nm_cmd=(
+  gatk
+  --java-options "-Xmx$gatk_mem"
+  SetNmMdAndUqTags
+  -R "$genome_local_unzip"
+  --TMP_DIR "$TMPDIR"
+  -I "$TMPDIR/$tmp2_bam"
+  -O "$TMPDIR/$out_bam"
+)
+echo "${set_nm_cmd[*]}"
+"${set_nm_cmd[@]}"
+
+# Index final coordinate-sorted BAM
+samtools_cmd_2=(
+  samtools index
+  -@ "$SLURM_CPUS_PER_TASK"
+  --bai
+  "$TMPDIR/$out_bam"
+)
+echo "${samtools_cmd_2[*]}"
+"${samtools_cmd_2[@]}"
+
+# Copy only final BAM to working directory
+echo "cp $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
+cp "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
 
 # Mark time at completion
 echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$out_bam" ]]
+if [[ -f "$outdir/$out_bam" ]] \
+  && [[ -f "$outdir/$out_bam.bai" ]] \
+  && [[ -f "$out_summary" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"

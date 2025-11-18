@@ -13,17 +13,14 @@
 
 ---
 # Title to use for the report.
-title: "S. latissima gametophyte WGS QC"
+title: "Saccharina gametophyte WGS QC"
 
 # Disable the analysis paths and time in the report header
 show_analysis_paths: False
 show_analysis_time: False
 
-# Output filenames
-output_fn_name: multiqc_report.html
+# Output parsed data directory in addition to the report
 data_dir_name: multiqc_data
-
-# Whether to create the parsed data directory in addition to the report
 make_data_dir: True
 
 # Ignore files larger than this when searching for logs (bytes)

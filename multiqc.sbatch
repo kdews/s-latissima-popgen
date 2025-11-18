@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J multiqc
+#SBATCH -o %x.log
 #SBATCH --mem=15gb
 #SBATCH --time=01:00:00
 
@@ -10,9 +12,12 @@ echo
 prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
-outdir="$4" # output directory
+outdir="$4" # output directory (default parsed data directory name)
 scripts_dir="$5" # optional: directory containing scripts (MUST end in '/')
 
+# MultiQC output file
+date_str="$(date +"%m_%d_%y")"
+out_report="multiqc_report_$date_str.html"
 # MultiQC config file
 multiqc_config="multiqc_config.yaml"
 # If $scripts_dir exists, prepend path to config
@@ -39,7 +44,7 @@ else
   exit 1
 fi
 
-# Load multiqc
+# Load MultiQC
 conda activate multiqc
 multiqc --version || exit 1
 
@@ -47,7 +52,7 @@ multiqc --version || exit 1
 cmd=(
   multiqc
   -c "$multiqc_config"
-  -o "$outdir"
+  -n "$out_report"
   "$indir"
 )
 echo "${cmd[*]}"
@@ -58,7 +63,7 @@ echo; date; echo
 
 # Checkpoints
 mkdir -p checkpoints
-if [[ -f ${qc_dir}/multiqc_report.html  ]]
+if [[ -f "$out_report" ]] && [[ -d "$outdir" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"

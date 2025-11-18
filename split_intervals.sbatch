@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J split_intervals
+#SBATCH -o %x.log
 #SBATCH --mem=1g
 #SBATCH --time=01:00:00
 

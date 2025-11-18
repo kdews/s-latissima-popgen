@@ -1,7 +1,9 @@
 #!/bin/bash
+#SBATCH -J fastqc
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=5gb
 #SBATCH --time=08:00:00
-#SBATCH --cpus-per-task=12
+#SBATCH --cpus-per-task=2
 
 # Print date and time
 date
@@ -44,6 +46,8 @@ echo "2: $reads2"
 cmd=(
   fastqc
   -t "$SLURM_CPUS_PER_TASK"
+  # Give memory in MB (default unit for Slurm and FastQC)
+  --memory "$SLURM_MEM_PER_NODE"
   -o "$outdir"
   "$reads1"
   "$reads2"
@@ -62,7 +66,7 @@ if [[ -f "$outdir/${sample_id}_R1_fastqc.zip" ]] && \
   [[ -f "$outdir/${sample_id}_R2_fastqc.html" ]]
 then
   echo "Creating checkpoint."
-  touch "checkpoints/${prefix}_${SLURM_ARRAY_TASK_ID}.checkpoint"
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
   echo "Error - not all FastQC files created for sample ID: $sample_id"

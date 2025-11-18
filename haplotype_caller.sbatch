@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J haplotype_caller
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=5g
 #SBTACH --cpus-per-task=12
 #SBATCH --time=10:00:00

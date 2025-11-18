@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J genotype_gvcfs
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=17g
 #SBATCH --time=04:00:00
 

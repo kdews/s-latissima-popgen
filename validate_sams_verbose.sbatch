@@ -1,14 +1,9 @@
 #!/bin/bash
-#SBATCH -J validate_sams
+#SBATCH -J validate_sams_verbose
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=8gb
 #SBATCH --time=05:00:00
 
-# Print date and time
-date
-echo
-
-# Input
 prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
@@ -34,10 +29,7 @@ id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
 infile="$(find "$indir" -type f -name "*${id}_*$pattern")"
 infile_basename="$(basename "$infile")"
 # Output QC summary file named from ID
-out_summary="$outdir/$infile_basename.validate.summary"
-
-# Define memory for GATK4 (90% of total)
-gatk_mem="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+out_summary="$outdir/$infile_basename.validate.verbose"
 
 # Load GATK4
 module purge
@@ -46,10 +38,8 @@ gatk --version || exit 1
 
 # Run GATK4's ValidateSamFile in summary mode
 cmd=(
-  gatk
-  --java-options "-Xmx$gatk_mem"
-  ValidateSamFile
-  -M SUMMARY
+  gatk ValidateSamFile
+  -M VERBOSE
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
   -I "$infile"
@@ -60,16 +50,3 @@ echo "${cmd[*]}"
 
 # Mark time at completion
 echo; date; echo
-
-# Checkpoint
-mkdir -p checkpoints
-if [[ -f "$out_summary" ]]
-then
-  echo "Creating checkpoint."
-  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-  exit 0
-else
-  echo "Error - ValidateSamFile summary for BAM ($infile) not found."
-  echo "Checkpoint not created."
-  exit 1
-fi

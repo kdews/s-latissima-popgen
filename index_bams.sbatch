@@ -1,4 +1,6 @@
 #!/bin/bash
+#SBATCH -J index_bams
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --mem=1g
 #SBATCH --time=01:00:00
 #SBATCH --cpus-per-task=5

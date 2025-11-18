@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --time=10:00:00
-#SBATCH -J queen
+#SBATCH --time=1-0
+#SBATCH -J queen_sbatch_%j.log
 #SBATCH -o %x.log
 
 ## Variant calling pipeline
@@ -36,7 +36,8 @@ then
 $pipeline_header
 
 Usage: 
-  bash/sbatch pipeline-s-latissima-popgen.sh [scripts_dir]
+  bash pipeline-s-latissima-popgen.sh [scripts_dir]
+  sbatch pipeline-s-latissima-popgen.sh [scripts_dir]
 
 Options:
   -h/--help                      print this usage message
@@ -184,6 +185,8 @@ mkdir -p "$gvcfs_dir"
 mkdir -p "$split_intervals_dir"
 mkdir -p "$genomicsdbimport_dir"
 mkdir -p "$vcfs_dir"
+# Create "checkpoints" directory
+mkdir -p checkpoints
 
 # Report wait time to user
 if (( $(( sleep_time / 60 )) < 1 ))
@@ -263,7 +266,14 @@ ls_check () {
     } >> "$pipeline_log"
     exit 1
   fi
-  find checkpoints -type f -name "$prefix*.checkpoint"
+  # Check for array-formatted checkpoint files first
+  len="$(find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint" | wc -l)"
+  if (( len > 0 ))
+  then
+    find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint"
+  else
+    find checkpoints -type f -name "$prefix.checkpoint"
+  fi
 }
 # Function identifies checkpoint files for a step ($prefix) and
 # returns a string of array indices (e.g., 1,2,4,) for missing checkpoint files
@@ -362,23 +372,36 @@ run_step () {
     (( array_size > 1 )) && array_flag="--array=1-$array_size"
     echo "Running $prefix step." >> "$pipeline_log"
   fi
-  # Pass arguments to job step submission
+  # Pass arguments to specific step script
   step_args=(
     "$prefix" # $1 to sbatch file
     "$genome_config" # $2 to sbatch file
     "${@:3}" # captures all remaining arguments to function
   )
   # Job submission command
-  cmd=(
-    sbatch
-    --parsable
-    -p "$partition"
-    -J "$prefix"
-    "$array_flag"
-    -o "$logfile"
-    "$sbatch_file"
-    "${step_args[@]}"
-  )
+  if [[ -n "$array_flag" ]]
+  then
+    cmd=(
+      sbatch
+      --parsable
+      -p "$partition"
+      -J "$prefix"
+      -o "$logfile"
+      "$array_flag"
+      "$sbatch_file"
+      "${step_args[@]}"
+    )
+  else
+    cmd=(
+      sbatch
+      --parsable
+      -p "$partition"
+      -J "$prefix"
+      -o "$logfile"
+      "$sbatch_file"
+      "${step_args[@]}"
+    )
+  fi
   # Log job submission
   echo "${cmd[*]}" >> "$pipeline_log"
   jobid="$("${cmd[@]}")"
@@ -410,7 +433,7 @@ PIPELINE_STEPS=(
   "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$vcf_list"
   "validate_variants|--array|$vcfs_dir|$qc_dir|$vcf_list"
   "merge_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
-  "multiqc|$qc_dir|$qc_dir|$scripts_dir"
+  "multiqc|$qc_dir|$multiqc_dir|$scripts_dir"
 )
 
 # Run pipeline
@@ -492,7 +515,7 @@ do
   # Log step
   {
     date +"$date_fmt"
-    echo "Step #((step + 1)): $prefix"
+    echo "Step #$((step + 1)): $prefix"
   } >> "$pipeline_log"
 
   # Parse batch array jobs
