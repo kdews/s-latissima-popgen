@@ -4,6 +4,11 @@
 #SBATCH --mem=8gb
 #SBATCH --time=05:00:00
 
+# Print date and time
+date
+echo
+
+# Input
 prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
