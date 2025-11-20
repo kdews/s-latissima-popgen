@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J collect_wgs_metrics
+#SBATCH -J collect_metrics
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
 #SBATCH --mem=15gb
@@ -31,7 +31,8 @@ fi
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
 # Input BAM file
 in_bam="${sample_id}_$genome_base.sorted.bam"
-# Output QC file named from sample ID
+# Output QC files named from sample ID
+align_metrics="${sample_id}_$genome_base.collect_alignment_summary.metrics"
 wgs_metrics="${sample_id}_$genome_base.collect_wgs.metrics"
 
 # Define memory for GATK4 (90% of total)
@@ -46,8 +47,21 @@ gatk --version || exit 1
 echo "rsync --progress $indir/$in_bam $TMPDIR/"
 rsync --progress "$indir/$in_bam" "$TMPDIR/"
 
+# Run GATK4 CollectAlignmentSummaryMetrics on HISAT2 alignmnets
+align_cmd=(
+  gatk
+  --java-options "-Xmx$gatk_mem"
+  CollectAlignmentSummaryMetrics
+  -R "$genome_local_unzip"
+  --TMP_DIR "$TMPDIR"
+  -I "$TMPDIR/$in_bam"
+  -O "$TMPDIR/$align_metrics"
+)
+echo "${align_cmd[*]}"
+"${align_cmd[@]}"
+
 # Run GATK4's CollectWgsMetrics on HISAT2 alignmnets
-cmd=(
+wgs_cmd=(
   gatk
   --java-options "-Xmx$gatk_mem"
   CollectWgsMetrics
@@ -57,25 +71,27 @@ cmd=(
   -I "$TMPDIR/$in_bam"
   -O "$TMPDIR/$wgs_metrics"
 )
-echo "${cmd[*]}"
-"${cmd[@]}"
+echo "${wgs_cmd[*]}"
+"${wgs_cmd[@]}"
 
 # Copy result from temporary storage
-echo "rsync --progress $TMPDIR/$wgs_metrics $outdir/"
-rsync --progress "$TMPDIR/$wgs_metrics" "$outdir/"
+echo "rsync --progress $TMPDIR/$align_metrics $TMPDIR/$wgs_metrics $outdir/"
+rsync --progress "$TMPDIR/$align_metrics" "$TMPDIR/$wgs_metrics" "$outdir/"
 
 # Mark time at completion
 echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$wgs_metrics" ]]
+if [[ -f "$outdir/$align_metrics" ]] && [[ -f "$outdir/$wgs_metrics" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
-  echo "Error - WGS Metrics file ($wgs_metrics) for BAM ($in_bam) not found."
+  echo "Error - metrics QC files for BAM ($in_bam) not found. Expected files:"
+  echo "$outdir/$align_metrics"
+  echo "$outdir/$wgs_metrics"
   echo "Checkpoint not created."
   exit 1
 fi
