@@ -37,19 +37,25 @@ infile_basename="$(basename "$infile")"
 out_summary="$outdir/$infile_basename.validate.summary"
 
 # Define memory for GATK4 (90% of total)
-gatk_mem="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+gatk_mem_min="$(( 3 * SLURM_MEM_PER_NODE / 10 ))M"
+gatk_mem_max="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
 
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version || exit 1
 
+# # Use temporary storage for computations
+# echo "rsync --progress $infile $TMPDIR/"
+# rsync --progress "$infile" "$TMPDIR/"
+
 # Run GATK4's ValidateSamFile in summary mode
 cmd=(
   gatk
-  --java-options "-Xmx$gatk_mem"
+  --java-options "-Xmx $gatk_mem_min -Xmx$gatk_mem_max"
   ValidateSamFile
   -M SUMMARY
+  --MAX_RECORDS_IN_RAM 5000000
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
   -I "$infile"

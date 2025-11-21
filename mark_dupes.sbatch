@@ -38,6 +38,9 @@ out_bam="$outdir/${sample_id}_$genome_base.sorted.marked.bam"
 # QC metrics for marked duplicates
 dupe_metrics="$qc_dir/${sample_id}_$genome_base.mark_dupes.metrics"
 
+# Define memory for GATK4 (90% of total)
+gatk_mem="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
@@ -45,7 +48,11 @@ gatk --version || exit 1
 
 # Run GATK4's MarkDuplicates
 cmd=(
-  gatk MarkDuplicates
+  gatk
+  --java-options "-Xms$gatk_mem -Xmx$gatk_mem"
+  MarkDuplicates
+  -R "$genome_local_unzip"
+  --tmp-dir "$TMPDIR"
   -I" $in_bam"
   -O "$out_bam"
   -M "$dupe_metrics"
