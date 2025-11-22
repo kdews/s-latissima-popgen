@@ -1,8 +1,11 @@
 #!/bin/bash
 #SBATCH -J merge_vcfs
 #SBATCH -o %x.log
-#SBATCH --mem=100g
 #SBATCH --time=4-0
+#SBATCH --mem=100g
+
+# Log Slurm job details
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

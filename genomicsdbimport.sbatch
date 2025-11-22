@@ -1,8 +1,12 @@
 #!/bin/bash
 #SBATCH -J genomicsdbimport
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=50g
 #SBATCH --time=1-0
+#SBATCH --mem=50g
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date
@@ -54,8 +58,9 @@ gatk --version || exit 1
 
 # Run GATK4's GenomicsDBImport
 cmd=(
-  gatk GenomicsDBImport
+  gatk 
   --java-options "-Xms39g -Xmx39g"
+  GenomicsDBImport
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -L "$interval"

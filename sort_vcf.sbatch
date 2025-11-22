@@ -1,8 +1,12 @@
 #!/bin/bash
 #SBATCH -J sort_vcf
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=25g
 #SBATCH --time=00:30:00
+#SBATCH --mem=25g
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

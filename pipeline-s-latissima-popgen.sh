@@ -322,8 +322,8 @@ run_step () {
   # Arguments to function
   array_size="$1" # array size for job (integer)
   prefix="$2" # prefix of sbatch file for job (string)
-  # Parse repeat calls to same sbatch file (prefix=<prefix>_#)
-  prefix_base="${prefix%_[0-9]*}"
+  # Parse repeat calls to same sbatch file (prefix=<prefix>-#)
+  prefix_base="${prefix%-[0-9]*}"
 
   # Log function call
   echo "run_step $*" >> "$pipeline_log"
@@ -420,9 +420,9 @@ PIPELINE_STEPS=(
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
   "collect_metrics|--array|$bams_dir|$qc_dir|$samples_list"
   "mark_dupes|--array|$bams_dir|$bams_dir|$samples_list|$qc_dir"
-  "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.marked.sorted.bam"
+  "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.marked.bam"
   "collapse_bams|--array|$bams_dir|$bams_dir|$indiv_list"
-  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.merged.marked.sorted.bam"
+  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.merged.bam"
   "index_bams|--array|$bams_dir|$bams_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
   "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_list"
@@ -509,7 +509,7 @@ do
   count="${PREFIX_COUNT[$prefix]:-0}" # if no stored value, set count to zero
   ((count++)) # increment count
   PREFIX_COUNT[$prefix]="$count" # store count for $prefix array entry
-  ((count > 1)) && prefix="${prefix}_$count" # append "_n" to repeat $prefix
+  ((count > 1)) && prefix="${prefix}-$count" # append "-n" to repeat $prefix
 
   # Log step
   {

@@ -2,8 +2,12 @@
 #SBATCH -J hisat2
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=02:00:00
-#SBATCH --mem=45gb
+#SBATCH --mem=45g
 #SBATCH --cpus-per-task=16
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date
@@ -35,6 +39,16 @@ fi
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
 reads1="$indir/${sample_id}_R1_val_1.fq.gz"
 reads2="$indir/${sample_id}_R2_val_2.fq.gz"
+# Verify read files exist
+if [[ -f "$reads1" ]] && [[ -f "$reads2" ]]
+then
+  echo "Parsing read groups from sample ID ($sample_id) and associated read files:"
+  echo "1: $reads1"
+  echo "2: $reads2"
+else
+  echo "Error - missing input file for $sample_id"
+  exit 1
+fi
 # Create ID for BAM files
 bam_id="${sample_id}_$genome_base"
 # Temporary BAM filename before GATK4 fixes
@@ -49,8 +63,6 @@ out_summary="$qc_dir/$bam_id.hisat2.summary"
 # Define threads for each command
 hisat_thr="$(( 3 * SLURM_CPUS_PER_TASK / 4 ))"
 samtools_thr="$(( 1 * SLURM_CPUS_PER_TASK / 4 ))"
-# Define memory for GATK4 (90% of total)
-gatk_mem="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
 # Define memory per thread for samtools sort (90% of total to avoid OOM error)
 mem_per_thread="$(( 9 * SLURM_MEM_PER_NODE / SLURM_CPUS_PER_TASK / 10 ))M"
 
@@ -70,9 +82,6 @@ hisat2 --version || exit 1
 samtools --version || exit 1
 
 # Define read groups for SAM headers from sample ID and FASTQ file read IDs
-echo "Parsing read groups from sample ID ($sample_id) and associated read files:"
-echo "1: $reads1"
-echo "2: $reads2"
 # Input sample ID format = UniqueID_SampleID_Sequencer_Barcode_Plate_Lane_Read 
 # Create array 'rgs1' from sample ID by splitting on '_'
 IFS='_' read -r -a rgs1 <<< "$sample_id"
@@ -130,6 +139,15 @@ samtools_cmd=(
 echo "${hisat2_cmd[*]} | ${samtools_cmd[*]}"
 "${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
 
+# Define memory for GATK4 FixMateInformation
+# Allocate from remaining memory (/tmp stores in RAM)
+file_mem="$(du -m "$TMPDIR/$tmp1_bam" | awk '{print $1}')"
+mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
+# Minimum = 50% of memory remaining 
+gatk_mem_min="$(( 5 * mem / 10 ))M"
+# Maximum = 90% of memory remaining
+gatk_mem_max="$(( 9 * mem / 10 ))M"
+
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
@@ -138,8 +156,9 @@ gatk --version || exit 1
 # Fix read mate pairs with GATK4
 fixmate_cmd=(
   gatk
-  --java-options "-Xmx$gatk_mem"
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   FixMateInformation
+  --MAX_RECORDS_IN_RAM 5000000
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
   -I "$TMPDIR/$tmp1_bam"
@@ -148,11 +167,21 @@ fixmate_cmd=(
 echo "${fixmate_cmd[*]}"
 "${fixmate_cmd[@]}"
 
+# Define memory for GATK4 SetNmMdAndUqTags
+# Allocate from remaining memory (/tmp stores in RAM)
+file_mem2="$(du -m "$TMPDIR/$tmp2_bam" | awk '{print $1}')"
+mem="$(( SLURM_MEM_PER_NODE - file_mem - file_mem2 ))"
+# Minimum = 50% of memory remaining 
+gatk_mem_min="$(( 5 * mem / 10 ))M"
+# Maximum = 90% of memory remaining
+gatk_mem_max="$(( 9 * mem / 10 ))M"
+
 # Recalculate NM tags with GATK4
 set_nm_cmd=(
   gatk
-  --java-options "-Xmx$gatk_mem"
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   SetNmMdAndUqTags
+  --MAX_RECORDS_IN_RAM 5000000
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
   -I "$TMPDIR/$tmp2_bam"

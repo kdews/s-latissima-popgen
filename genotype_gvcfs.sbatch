@@ -1,8 +1,12 @@
 #!/bin/bash
 #SBATCH -J genotype_gvcfs
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=17g
 #SBATCH --time=04:00:00
+#SBATCH --mem=17g
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date
@@ -46,8 +50,9 @@ gatk --version || exit 1
 
 # Run GATK4's GenotypeGVCFs with GenomicsDBImport option
 cmd=(
-  gatk GenotypeGVCFs
+  gatk
   --java-options "-Xms14g -Xmx14g"
+  GenotypeGVCFs
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -L "$interval"

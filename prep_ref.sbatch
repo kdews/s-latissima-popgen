@@ -1,8 +1,11 @@
 #!/bin/bash
 #SBATCH -J prep_ref
 #SBATCH -o %x.log
-#SBATCH --mem=500mb
 #SBATCH --time=02:00:00
+#SBATCH --mem=500m
+
+# Log Slurm job details
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

@@ -1,9 +1,12 @@
 #!/bin/bash
 #SBATCH -J rename
 #SBATCH -o %x.log
-#SBATCH --mem=20gb
 #SBATCH --time=03:30:00
+#SBATCH --mem=20g
 #SBATCH --cpus-per-task=20
+
+# Log Slurm job details
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

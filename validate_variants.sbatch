@@ -1,8 +1,12 @@
 #!/bin/bash
 #SBATCH -J validate_variants
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=8gb
 #SBATCH --time=05:00:00
+#SBATCH --mem=8g
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

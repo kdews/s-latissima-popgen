@@ -1,9 +1,13 @@
 #!/bin/bash
 #SBATCH -J fastqc
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=5gb
 #SBATCH --time=08:00:00
+#SBATCH --mem=5g
 #SBATCH --cpus-per-task=2
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

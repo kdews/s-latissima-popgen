@@ -5,6 +5,10 @@
 #SBATCH --time=5-0
 #SBATCH --cpus-per-task=2
 
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
+
 # Print date and time
 date
 echo
@@ -43,7 +47,14 @@ mapfile -t input_bams < <(find "$indir" -type f -name "*_${indiv_id}_*.sorted.ma
 cnt=${#input_bams[@]}
 for ((i=0;i<cnt;i++))
 do
-  input_bams[i]="-I ${input_bams[i]}"
+  # Verify input files exist
+  if [[ -f "${input_bams[i]}" ]]
+  then
+    input_bams[i]="-I ${input_bams[i]}"
+  else
+    echo "Error - missing input file (${input_bams[i]}) for $indiv_id"
+    exit 1
+  fi
 done
 
 # Load GATK4

@@ -1,9 +1,12 @@
 #!/bin/bash
 #SBATCH -J hisat2_build
 #SBATCH -o %x.log
-#SBATCH --mem=40gb
 #SBATCH --time=01:00:00
+#SBATCH --mem=40g
 #SBATCH --cpus-per-task=12
+
+# Log Slurm job details
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

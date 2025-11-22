@@ -1,9 +1,13 @@
 #!/bin/bash
 #SBATCH -J haplotype_caller
 #SBATCH -o %x_logs/%x_%a.log
+#SBATCH --time=10:00:00
 #SBATCH --mem=5g
 #SBTACH --cpus-per-task=12
-#SBATCH --time=10:00:00
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date
@@ -46,7 +50,9 @@ gatk --version || exit 1
 
 # Run GATK4's HaplotypeCaller
 cmd=(
-  gatk HaplotypeCaller
+  gatk
+  # --java-options "-Xms4g -Xmx4g"
+  HaplotypeCaller
   -ERC GVCF
   -ploidy 1
   -R "$genome_local_unzip"

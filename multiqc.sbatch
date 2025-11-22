@@ -1,8 +1,11 @@
 #!/bin/bash
 #SBATCH -J multiqc
 #SBATCH -o %x.log
-#SBATCH --mem=15gb
 #SBATCH --time=01:00:00
+#SBATCH --mem=15g
+
+# Log Slurm job details
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

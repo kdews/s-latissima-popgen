@@ -1,9 +1,13 @@
 #!/bin/bash
 #SBATCH -J index_bams
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=1g
 #SBATCH --time=01:00:00
+#SBATCH --mem=1g
 #SBATCH --cpus-per-task=5
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

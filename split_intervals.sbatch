@@ -1,8 +1,11 @@
 #!/bin/bash
 #SBATCH -J split_intervals
 #SBATCH -o %x.log
-#SBATCH --mem=1g
 #SBATCH --time=01:00:00
+#SBATCH --mem=1g
+
+# Log Slurm job details
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date

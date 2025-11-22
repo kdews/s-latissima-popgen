@@ -1,8 +1,12 @@
 #!/bin/bash
 #SBATCH -J validate_sams_verbose
 #SBATCH -o %x_logs/%x_%a.log
-#SBATCH --mem=8gb
 #SBATCH --time=05:00:00
+#SBATCH --mem=8g
+
+# Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
 date
@@ -34,7 +38,20 @@ id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
 infile="$(find "$indir" -type f -name "*${id}_*$pattern")"
 infile_basename="$(basename "$infile")"
 # Output QC summary file named from ID
-out_summary="$outdir/$infile_basename.validate.verbose"
+out_summary="$infile_basename.validate.verbose"
+
+# Use temporary storage for computations
+echo "rsync --progress $infile $TMPDIR/"
+rsync --progress "$infile" "$TMPDIR/"
+
+# Define memory for GATK4
+# Allocate from remaining memory (/tmp stores in RAM)
+file_mem="$(du -m "$TMPDIR/$infile_basename" | awk '{print $1}')"
+mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
+# Minimum = 50% of memory remaining 
+gatk_mem_min="$(( 5 * mem / 10 ))M"
+# Maximum = 90% of memory remaining
+gatk_mem_max="$(( 9 * mem / 10 ))M"
 
 # Load GATK4
 module purge
@@ -43,15 +60,22 @@ gatk --version || exit 1
 
 # Run GATK4's ValidateSamFile in summary mode
 cmd=(
-  gatk ValidateSamFile
+  gatk 
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
+  ValidateSamFile
   -M VERBOSE
+  --MAX_RECORDS_IN_RAM 5000000
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
-  -I "$infile"
-  -O "$out_summary"
+  -I "$TMPDIR/$infile_basename"
+  -O "$TMPDIR/$out_summary"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Copy result from temporary storage
+echo "rsync --progress $TMPDIR/$out_summary $outdir/"
+rsync --progress "$TMPDIR/$out_summary" "$outdir/"
 
 # Mark time at completion
 echo; date; echo
