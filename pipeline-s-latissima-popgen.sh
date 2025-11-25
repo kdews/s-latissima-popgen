@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --time=1-0
-#SBATCH -J queen_sbatch_%j.log
-#SBATCH -o %x.log
+#SBATCH -J queen
+#SBATCH -o queen_sbatch_%j.log
 
 ## Variant calling pipeline
 # Slurm-based pipeline with sequential job steps

@@ -50,17 +50,20 @@ dupe_metrics="${sample_id}_$genome_base.mark_dupes.metrics"
 echo "rsync --progress $indir/$in_bam $TMPDIR/"
 rsync --progress "$indir/$in_bam" "$TMPDIR/"
 
-# Define memory for GATK4
-# Allocate from remaining memory (/tmp stores in RAM)
-file_mem="$(du -m "$TMPDIR/$in_bam" | awk '{print $1}')"
-mem="$(( SLURM_MEM_PER_NODE - ( file_mem * 2 ) ))" # leave room for output BAM
-# 75% of memory remaining
-gatk_mem="$(( 75 * mem / 100 ))"
-# Define memory per thread
-mem_per_thread="$(( gatk_mem / SLURM_CPUS_PER_TASK ))M"
-# Define number of threads for Spark
+
+# GATK4 Spark parameters
+# Define number of threads (cores)
 n_thread="$SLURM_CPUS_PER_TASK"
-# n_thread="$(( SLURM_CPUS_PER_TASK - 1 ))"
+# Allocate from remaining memory (/tmp stores in RAM)
+file_mem="$(du -m "$TMPDIR/$in_bam" | awk '{print $1}')" # force unit=M
+mem="$(( SLURM_MEM_PER_NODE - ( file_mem * 2 ) ))" # double for output file
+# Save 4gb for driver/off-heap and other threads
+driver_mem=4000 # unit=M
+exec_mem="$(( mem - driver_mem ))" # unit=M
+mem_per_thread="$(( exec_mem / n_thread ))" # unit=M
+offheap_mem=2000 # off-heap shuffle buffer (unit=M)
+# Partitons used for shuffling data during joins/aggregations
+shuffle_parts="$(( n_thread * 3 ))" # avoid default 200
 
 # Load GATK4
 module purge
@@ -70,7 +73,7 @@ gatk --version || exit 1
 # Run GATK4's MarkDuplicates
 cmd=(
   gatk
-  --java-options "-Xms${gatk_mem}M -Xmx${gatk_mem}M"
+  # --java-options "-Xms${gatk_mem}M -Xmx${gatk_mem}M"
   MarkDuplicatesSpark
   -R "$genome_local_unzip"
   --tmp-dir "$TMPDIR"
@@ -81,16 +84,25 @@ cmd=(
   -VS LENIENT # for MarkDuplicatesSpark
   --spark-master "local[$n_thread]"
   --conf spark.local.dir="$TMPDIR"
-  --conf spark.executor.cores="$n_thread"
   --conf spark.task.cpus=1
-  --conf spark.executor.memory="$mem_per_thread"
+  --conf spark.executor.cores="$n_thread"
+  --conf spark.driver.cores=1
+  # --conf spark.executor.memory="${mem_per_thread}M"
+  --conf spark.executor.memory="${exec_mem}M"
+  --conf spark.driver.memory="${driver_mem}M"
+  --conf spark.memory.offHeap.enabled=true
+  --conf spark.memory.offHeap.size="${offheap_mem}M"
+  --conf spark.sql.shuffle.partitions="$shuffle_parts"
+  --conf spark.shuffle.file.buffer=32k
+  --conf spark.executor.heartbeatInterval="60s"
+  --conf spark.network.timeout="300s"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
 
 # Copy results from temporary storage
-echo "rsync --progress $TMPDIR/$out_bam $outdir/"
-rsync --progress "$TMPDIR/$out_bam" "$outdir/"
+echo "rsync --progress $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
+rsync --progress "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
 echo "rsync --progress $TMPDIR/$dupe_metrics $qc_dir/"
 rsync --progress "$TMPDIR/$dupe_metrics" "$qc_dir/"
 
@@ -99,13 +111,18 @@ echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$out_bam" ]] && [[ -f "$qc_dir/$dupe_metrics" ]]
+if [[ -f "$outdir/$out_bam" ]] \
+  && [[ -f "$outdir/$out_bam.bai" ]] \
+  && [[ -f "$qc_dir/$dupe_metrics" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
-  echo "Error - missing marked BAM ($out_bam) or QC ($dupe_metrics) for sample: $sample_id"
+  echo "Error - missing one of three expected output files for sample $sample_id:"
+  echo "Duplicate marked BAM ($out_bam)"
+  echo "BAM index ($out_bam.bai)"
+  echo "QC file ($dupe_metrics)"
   echo "Checkpoint not created."
   exit 1
 fi
