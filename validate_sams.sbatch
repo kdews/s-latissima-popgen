@@ -2,7 +2,7 @@
 #SBATCH -J validate_sams
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=8g
+#SBATCH --mem=15g
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -48,8 +48,8 @@ rsync --progress "$infile" "$TMPDIR/"
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
-file_mem="$(du -m "$TMPDIR/$infile_basename" | awk '{print $1}')"
-mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
+tmp_mem="$(du -m "$TMPDIR" | awk '{print $1}')"
+mem="$(( SLURM_MEM_PER_NODE - tmp_mem ))"
 # Minimum = 50% of memory remaining 
 gatk_mem_min="$(( 5 * mem / 10 ))M"
 # Maximum = 90% of memory remaining

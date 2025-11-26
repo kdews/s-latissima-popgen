@@ -68,6 +68,7 @@ cmd=(
   -R "$genome_local_unzip"
   "${input_bams[@]}"
   -O "$out_bam"
+  --MAX_RECORDS_IN_RAM 5000000
   --USE_THREADING
   --TMP_DIR "$tempdir"
 )

@@ -34,7 +34,7 @@ fi
 # Parse sample ID
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
 # Input BAM file
-in_bam="${sample_id}_$genome_base.sorted.bam"
+in_bam="${sample_id}_$genome_base.sorted.marked.bam"
 # Verify input file exists
 [[ -f "$indir/$in_bam" ]] \
   || { echo "Error - missing input file for $sample_id"; exit 1; }

@@ -418,12 +418,12 @@ PIPELINE_STEPS=(
   "hisat2_build|$bams_dir|$bams_dir"
   "hisat2|--array|$trimmed_dir|$bams_dir|$samples_list|$qc_dir|$indiv_list"
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
+  "mark_dupes|--array|$bams_dir|$bams_dir|$indiv_list|$qc_dir"
+  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
   "collect_metrics|--array|$bams_dir|$qc_dir|$samples_list"
-  "mark_dupes|--array|$bams_dir|$bams_dir|$samples_list|$qc_dir"
-  "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.marked.bam"
-  "collapse_bams|--array|$bams_dir|$bams_dir|$indiv_list"
-  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.merged.bam"
-  "index_bams|--array|$bams_dir|$bams_dir|$indiv_list"
+  # "collapse_bams|--array|$bams_dir|$bams_dir|$indiv_list"
+  # "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.merged.bam"
+  # "index_bams|--array|$bams_dir|$bams_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
   "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_list"
   "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"
@@ -458,7 +458,8 @@ do
     if [[ "$dep_prefix" = "hisat2" ]] && [[ -f "$indiv_list" ]]
     then
       echo "Sorting $indiv_list for unique invidual IDs." >> "$pipeline_log"
-      sort -u "$indiv_list" > "${indiv_list}_sorted"
+      # Sort and keep only non-empty lines
+      sort -u "$indiv_list" | grep -v -x '[[:blank:]]*' > "${indiv_list}_sorted"
       mv "${indiv_list}_sorted" "$indiv_list"
     elif [[ "$dep_prefix" = "hisat2" ]] && [[ ! -f "$indiv_list" ]]
     then
