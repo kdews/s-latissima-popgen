@@ -52,9 +52,9 @@ sp:
   hisat2:
     fn: "*.hisat2.summary"
   picard/markdups:
-    fn: "*.mark_dupes.metrics"
+    fn: "*.marked_dup_metrics.txt"
   picard/alignment_metrics:
-    fn: "*.collect_alignment_summary.metrics"
+    fn: "*.alignment_summary_metrics.txt"
   picard/basedistributionbycycle:
     skip: true
   picard/gcbias:
@@ -62,7 +62,7 @@ sp:
   picard/hsmetrics:
     skip: true
   picard/insertsize:
-    skip: true
+    fn: "*.insert_size_metrics.txt"
   picard/oxogmetrics:
     skip: true
   picard/pcr_metrics:
@@ -72,7 +72,7 @@ sp:
   picard/quality_score_distribution:
     skip: true
   picard/quality_yield_metrics:
-    skip: true
+    fn: "*.quality_yield_metrics.txt"
   picard/rnaseqmetrics:
     skip: true
   picard/rrbs_metrics:
@@ -82,13 +82,24 @@ sp:
   picard/variant_calling_metrics:
     skip: true
   picard/wgs_metrics:
-    fn: "*.collect_wgs.metrics"
+    fn: "*.collect_wgs_metrics.txt"
+  samtools/stats:
+    fn: "*.stats"
+  gatk/varianteval:
+    fn: "*.variant_eval.txt"
+  bcftools/stats:
+    fn: "*.bcftools.stats"
 
 # Change module order
 module_order:
-  - picard/markdups
+  - bcftools/stats
+  - gatk/varianteval
+  - samtools/stats
   - picard/alignment_metrics
+  - picard/insertsize
+  - picard/quality_yield_metrics
   - picard/wgs_metrics
+  - picard/markdups
   - hisat2
   - picard/sam_file_validation
   - fastqc:

@@ -222,6 +222,11 @@ else
   echo "Reads directory ($raw_reads_dir) not found." >> "$pipeline_log"
   exit 1
 fi
+# Maximum number of jobs to launch concurrently (default: 50)
+if [[ -z "$max_run" ]]
+then
+  max_run=50
+fi
 
 # Configure genome filenames for consistent references
 # Parse input genome filename
@@ -246,14 +251,6 @@ ht2_idx="$ht2_idx"
 EOF
 
 # Functions
-# Function creates log directory for a step ($prefix) and returns directory name
-make_logdir () {
-  # Create log directory (if needed) from given prefix
-  local logdir
-  logdir="${1}_logs"
-  mkdir -p "$logdir"
-  echo "$logdir"
-}
 # Function lists checkpoint files for a step ($prefix)
 ls_check () {
   local prefix
@@ -312,7 +309,6 @@ run_step () {
   local prefix
   local step_args
   local sbatch_file
-  local logdir
   local logfile
   local num_checks
   local array_indices
@@ -328,15 +324,15 @@ run_step () {
   # Log function call
   echo "run_step $*" >> "$pipeline_log"
   
-  # Name sbatch file from prefix
+  # Name sbatch file from prefix BASE (no increments)
   sbatch_file="${scripts_dir}$prefix_base.sbatch"
 
   # Name log file(s)
   if (( array_size > 1 ))
   then
     # For array jobs, write logs to directory <prefix>_logs
-    logdir="$(make_logdir "$prefix")"
-    logfile="$logdir/%x_%a.log"
+    # Shoutout GOATED Slurm release 23.02
+    logfile="%x_logs/%x_%a.log"
   else
     # For single jobs, write log to working directory
     logfile="%x.log"
@@ -357,7 +353,7 @@ run_step () {
     then
       # Use missing checkpoints to set array indices for submission
       array_indices="$(miss_check "$prefix" "$array_size")"
-      array_flag="--array=$array_indices"
+      array_flag="--array=$array_indices%$max_run"
       {
         echo "Missing checkpoints for $prefix step. Restarting."
         echo "Submitting job array indices: $array_indices"
@@ -369,7 +365,7 @@ run_step () {
     fi
   else
     # Set sbatch --array flag for array jobs
-    (( array_size > 1 )) && array_flag="--array=1-$array_size"
+    (( array_size > 1 )) && array_flag="--array=1-$array_size%$max_run"
     echo "Running $prefix step." >> "$pipeline_log"
   fi
   # Pass arguments to specific step script
@@ -420,10 +416,8 @@ PIPELINE_STEPS=(
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
   "mark_dupes|--array|$bams_dir|$bams_dir|$indiv_list|$qc_dir"
   "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
-  "collect_metrics|--array|$bams_dir|$qc_dir|$samples_list"
-  # "collapse_bams|--array|$bams_dir|$bams_dir|$indiv_list"
-  # "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.merged.bam"
-  # "index_bams|--array|$bams_dir|$bams_dir|$indiv_list"
+  "collect_metrics|--array|$bams_dir|$qc_dir|$indiv_list"
+  "bam_stats|--array|$bams_dir|$qc_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
   "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_list"
   "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"
@@ -432,6 +426,7 @@ PIPELINE_STEPS=(
   "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$vcf_list"
   "validate_variants|--array|$vcfs_dir|$qc_dir|$vcf_list"
   "merge_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
+  "variant_eval|.|$qc_dir"
   "multiqc|$qc_dir|$multiqc_dir|$scripts_dir"
 )
 

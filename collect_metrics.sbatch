@@ -2,7 +2,7 @@
 #SBATCH -J collect_metrics
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=15g
+#SBATCH --mem=20g
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -17,7 +17,7 @@ prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
-samples_list="$5" # list of sample IDs
+indiv_list="$5" # list of individual IDs
 
 # Create output directory (if needed)
 mkdir -p "$outdir"
@@ -31,16 +31,25 @@ else
   exit 1
 fi
 
-# Parse sample ID
-sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
+# Parse individual ID
+indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
 # Input BAM file
-in_bam="${sample_id}_$genome_base.sorted.marked.bam"
+uniq_id="${indiv_id}_$genome_base"
+in_bam="$uniq_id.sorted.marked.bam"
 # Verify input file exists
 [[ -f "$indir/$in_bam" ]] \
-  || { echo "Error - missing input file for $sample_id"; exit 1; }
-# Output QC files named from sample ID
-align_metrics="${sample_id}_$genome_base.collect_alignment_summary.metrics"
-wgs_metrics="${sample_id}_$genome_base.collect_wgs.metrics"
+  || { echo "Error - missing input file for $indiv_id"; exit 1; }
+# Output QC files named by program and ID
+# CollectAlignmentSummaryMetrics
+align_metrics="$uniq_id.alignment_summary_metrics.txt"
+align_pdf="$uniq_id.read_length_histogram.pdf"
+# CollectInsertSizeMetrics
+insert_metrics="$uniq_id.insert_size_metrics.txt"
+insert_pdf="$uniq_id.insert_size_histogram.pdf"
+# CollectQualityYieldMetrics
+qy_metrics="$uniq_id.quality_yield_metrics.txt"
+# CollectWgsMetrics
+wgs_metrics="$uniq_id.collect_wgs_metrics.txt"
 
 # Use temporary storage for computations
 echo "rsync --progress $indir/$in_bam $TMPDIR/"
@@ -48,8 +57,8 @@ rsync --progress "$indir/$in_bam" "$TMPDIR/"
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
-file_mem="$(du -m "$TMPDIR/$in_bam" | awk '{print $1}')"
-mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
+tmp_mem="$(du -m "$TMPDIR" | awk '{print $1}')"
+mem="$(( SLURM_MEM_PER_NODE - tmp_mem ))"
 # Minimum = 50% of memory remaining 
 gatk_mem_min="$(( 5 * mem / 10 ))M"
 # Maximum = 90% of memory remaining
@@ -57,31 +66,37 @@ gatk_mem_max="$(( 9 * mem / 10 ))M"
 
 # Load GATK4
 module purge
-module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35 r/4.4.3
 gatk --version || exit 1
+R --version || exit 1 # ensure R is loaded into env for CollectMultipleMetrics
 
-# Run GATK4 CollectAlignmentSummaryMetrics on HISAT2 alignmnets
-align_cmd=(
+# Run GATK4 CollectMultipleMetrics
+mult_cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  CollectAlignmentSummaryMetrics
+  CollectMultipleMetrics
   --MAX_RECORDS_IN_RAM 5000000
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
+  --PROGRAM null
+  --PROGRAM CollectAlignmentSummaryMetrics
+  --PROGRAM CollectInsertSizeMetrics
+  --PROGRAM CollectQualityYieldMetrics
+  -EXT ".txt"
   -I "$TMPDIR/$in_bam"
-  -O "$TMPDIR/$align_metrics"
+  -O "$TMPDIR/$uniq_id" # output prefix
 )
-echo "${align_cmd[*]}"
-"${align_cmd[@]}"
+echo "${mult_cmd[*]}"
+"${mult_cmd[@]}"
 
-# Run GATK4's CollectWgsMetrics on HISAT2 alignmnets
+# Run GATK4's CollectWgsMetrics
 wgs_cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   CollectWgsMetrics
   --USE_FAST_ALGORITHM
   --MAX_RECORDS_IN_RAM 5000000
-  --READ_LENGTH 150
+  --READ_LENGTH 151 # give longest possible read length for fast algorithm
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
   -I "$TMPDIR/$in_bam"
@@ -90,16 +105,23 @@ wgs_cmd=(
 echo "${wgs_cmd[*]}"
 "${wgs_cmd[@]}"
 
-# Copy results from temporary storage
-echo "rsync --progress $TMPDIR/$align_metrics $TMPDIR/$wgs_metrics $outdir/"
-rsync --progress "$TMPDIR/$align_metrics" "$TMPDIR/$wgs_metrics" "$outdir/"
+# Copy all resulting TXT and PDF files from temporary storage
+echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.txt $outdir/"
+rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.txt "$outdir/"
+echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.pdf $outdir/"
+rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.pdf "$outdir/"
 
 # Mark time at completion
 echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$align_metrics" ]] && [[ -f "$outdir/$wgs_metrics" ]]
+if [[ -f "$outdir/$align_metrics" ]] \
+  && [[ -f "$outdir/$align_pdf" ]] \
+  && [[ -f "$outdir/$insert_metrics" ]] \
+  && [[ -f "$outdir/$insert_pdf" ]] \
+  && [[ -f "$outdir/$qy_metrics" ]] \
+  && [[ -f "$outdir/$wgs_metrics" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
@@ -107,6 +129,10 @@ then
 else
   echo "Error - missing metrics QC files for BAM ($in_bam). Expected files:"
   echo "$outdir/$align_metrics"
+  echo "$outdir/$align_pdf"
+  echo "$outdir/$insert_metrics"
+  echo "$outdir/$insert_pdf"
+  echo "$outdir/$qy_metrics"
   echo "$outdir/$wgs_metrics"
   echo "Checkpoint not created."
   exit 1

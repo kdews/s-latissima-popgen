@@ -76,7 +76,7 @@ else
   exit 1
 fi
 
-# Load HISAT2
+# Load HISAT2 (env includes samtools)
 conda activate hisat2
 hisat2 --version || exit 1
 samtools --version || exit 1

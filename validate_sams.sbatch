@@ -2,7 +2,7 @@
 #SBATCH -J validate_sams
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=15g
+#SBATCH --mem=20g
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -34,17 +34,22 @@ fi
 
 # Parse ID from index file
 id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
-# Parse input filename (must have underscore (_) following unique ID)
-infile="$(find "$indir" -type f -name "*${id}_*$pattern")"
-# Verify input file exists
-[[ -f "$infile" ]] || { echo "Error - missing input file for $id"; exit 1; }
-infile_basename="$(basename "$infile")"
+# Input BAM file
+in_bam="${id}_${genome_base}${pattern}"
+# Verify input BAM exists in input directory
+if [[ -f "$indir/$in_bam" ]]
+then
+  echo "Validating input alignment file: $indir/$in_bam"
+else
+  echo "Error - missing input file for $id"
+  exit 1
+fi
 # Output QC summary file named from ID
-out_summary="$infile_basename.validate.summary"
+out_summary="$in_bam.validate.summary"
 
 # Use temporary storage for computations
-echo "rsync --progress $infile $TMPDIR/"
-rsync --progress "$infile" "$TMPDIR/"
+echo "rsync --progress $indir/$in_bam $TMPDIR/"
+rsync --progress "$indir/$in_bam" "$TMPDIR/"
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
@@ -69,7 +74,7 @@ cmd=(
   --MAX_RECORDS_IN_RAM 5000000
   -R "$genome_local_unzip"
   --TMP_DIR "$TMPDIR"
-  -I "$TMPDIR/$infile_basename"
+  -I "$TMPDIR/$in_bam"
   -O "$TMPDIR/$out_summary"
 )
 echo "${cmd[*]}"
@@ -90,7 +95,7 @@ then
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
-  echo "Error - ValidateSamFile summary for BAM ($infile) not found."
+  echo "Error - ValidateSamFile summary for BAM ($in_bam) not found."
   echo "Checkpoint not created."
   exit 1
 fi

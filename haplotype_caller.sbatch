@@ -20,12 +20,8 @@ indir="$3" # input directory
 outdir="$4" # output directory
 indiv_list="$5" # list of individual IDs
 
-# Name temp directory after job name
-tempdir="${prefix}_tmp"
-
 # Create output and temp directories (if needed)
 mkdir -p "$outdir"
-mkdir -p "$tempdir"
 
 # Source genome config
 if [[ -f "$genome_config" ]]
@@ -39,9 +35,22 @@ fi
 # Parse individual ID
 indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
 # Input BAM
-in_bam="$indir/${indiv_id}_$genome_base.sorted.marked.merged.bam"
+in_bam="${indiv_id}_$genome_base.sorted.marked.bam"
 # Output gVCF file named from individual ID
-out_gvcf="$outdir/${indiv_id}_$genome_base.g.vcf.gz"
+out_gvcf="${indiv_id}_$genome_base.g.vcf.gz"
+
+# Use temporary storage for computations
+echo "rsync --progress $indir/$in_bam $TMPDIR/"
+rsync --progress "$indir/$in_bam" "$TMPDIR/"
+
+# Define memory for GATK4
+# Allocate from remaining memory (/tmp stores in RAM)
+tmp_mem="$(du -m "$TMPDIR" | awk '{print $1}')"
+mem="$(( SLURM_MEM_PER_NODE - ( tmp_mem * 2 ) ))" # double for output file
+# Minimum = 50% of memory remaining 
+gatk_mem_min="$(( 5 * mem / 10 ))M"
+# Maximum = 90% of memory remaining
+gatk_mem_max="$(( 9 * mem / 10 ))M"
 
 # Load GATK4
 module purge
@@ -51,25 +60,29 @@ gatk --version || exit 1
 # Run GATK4's HaplotypeCaller
 cmd=(
   gatk
-  # --java-options "-Xms4g -Xmx4g"
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   HaplotypeCaller
   -ERC GVCF
   -ploidy 1
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
-  -I "$in_bam"
-  -O "$out_gvcf"
-  --tmp-dir "$tempdir"
+  --tmp-dir "$TMPDIR"
+  -I "$TMPDIR/$in_bam"
+  -O "$TMPDIR/$out_gvcf"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
+
+# Copy results from temporary storage
+echo "rsync --progress $TMPDIR/$out_gvcf $TMPDIR/$out_gvcf.bai $outdir/"
+rsync --progress "$TMPDIR/$out_gvcf" "$TMPDIR/$out_gvcf.bai" "$outdir/"
 
 # Mark time at completion
 echo; date; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$out_gvcf" ]]
+if [[ -f "$outdir/$out_gvcf" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"

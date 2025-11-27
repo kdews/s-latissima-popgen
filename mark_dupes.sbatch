@@ -41,7 +41,7 @@ mapfile -t input_bams < <(find "$indir" -type f -name "*_${indiv_id}_*.sorted.ba
 # Output marked BAM file
 out_bam="${indiv_id}_$genome_base.sorted.marked.bam"
 # QC metrics for marked duplicates
-dupe_metrics="${indiv_id}_$genome_base.mark_dupes.metrics"
+metrics_file="${indiv_id}_$genome_base.marked_dup_metrics.txt"
 
 # Define number of threads (cores)
 n_thread="$SLURM_CPUS_PER_TASK"
@@ -135,7 +135,7 @@ cmd=(
   --tmp-dir "$TMPDIR"
   "${bam_args[@]}"
   -O "$TMPDIR/$out_bam"
-  -M "$TMPDIR/$dupe_metrics"
+  -M "$TMPDIR/$metrics_file"
   # --VALIDATION_STRINGENCY LENIENT # for MarkDuplicates
   -VS LENIENT # for MarkDuplicatesSpark
   --spark-master "local[$n_thread]"
@@ -158,8 +158,8 @@ echo "${cmd[*]}"
 # Copy results from temporary storage
 echo "rsync --progress $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
 rsync --progress "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
-echo "rsync --progress $TMPDIR/$dupe_metrics $qc_dir/"
-rsync --progress "$TMPDIR/$dupe_metrics" "$qc_dir/"
+echo "rsync --progress $TMPDIR/$metrics_file $qc_dir/"
+rsync --progress "$TMPDIR/$metrics_file" "$qc_dir/"
 
 # Mark time at completion
 echo; date; echo
@@ -168,7 +168,7 @@ echo; date; echo
 mkdir -p checkpoints
 if [[ -f "$outdir/$out_bam" ]] \
   && [[ -f "$outdir/$out_bam.bai" ]] \
-  && [[ -f "$qc_dir/$dupe_metrics" ]]
+  && [[ -f "$qc_dir/$metrics_file" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
@@ -177,7 +177,7 @@ else
   echo "Error - missing one of three expected output files for sample $indiv_id:"
   echo "Duplicate marked BAM ($out_bam)"
   echo "BAM index ($out_bam.bai)"
-  echo "QC file ($dupe_metrics)"
+  echo "QC file ($metrics_file)"
   echo "Checkpoint not created."
   exit 1
 fi
