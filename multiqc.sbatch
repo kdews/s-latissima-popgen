@@ -8,7 +8,8 @@
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
-date
+date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
+date +"$date_fmt"
 echo
 
 # Input
@@ -19,7 +20,7 @@ outdir="$4" # output directory (default parsed data directory name)
 scripts_dir="$5" # optional: directory containing scripts (MUST end in '/')
 
 # MultiQC output file
-date_str="$(date +"%m_%d_%y")"
+date_str="$(date +"%m_%d_%y")" # filename date format
 out_report="multiqc_report_$date_str.html"
 # MultiQC config file
 multiqc_config="multiqc_config.yaml"
@@ -62,7 +63,7 @@ echo "${cmd[*]}"
 "${cmd[@]}"
 
 # Mark time at completion
-echo; date; echo
+echo; date +"$date_fmt"; echo
 
 # Checkpoints
 mkdir -p checkpoints

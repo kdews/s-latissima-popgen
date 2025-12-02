@@ -8,7 +8,8 @@
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
-date
+date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
+date +"$date_fmt"
 echo
 
 # Input
@@ -61,7 +62,7 @@ echo "${cmd[*]} > $outdir/$stats_file"
 "${cmd[@]}" > "$outdir/$stats_file"
 
 # Mark time at completion
-echo; date; echo
+echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints

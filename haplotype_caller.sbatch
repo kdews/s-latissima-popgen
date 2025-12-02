@@ -10,7 +10,8 @@ echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
-date
+date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
+date +"$date_fmt"
 echo
 
 # Input
@@ -20,7 +21,7 @@ indir="$3" # input directory
 outdir="$4" # output directory
 indiv_list="$5" # list of individual IDs
 
-# Create output and temp directories (if needed)
+# Create output directories (if needed)
 mkdir -p "$outdir"
 
 # Source genome config
@@ -78,7 +79,7 @@ echo "rsync --progress $TMPDIR/$out_gvcf $TMPDIR/$out_gvcf.bai $outdir/"
 rsync --progress "$TMPDIR/$out_gvcf" "$TMPDIR/$out_gvcf.bai" "$outdir/"
 
 # Mark time at completion
-echo; date; echo
+echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints

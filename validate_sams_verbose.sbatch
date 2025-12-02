@@ -9,7 +9,8 @@ echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
-date
+date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
+date +"$date_fmt"
 echo
 
 # Input
@@ -78,4 +79,4 @@ echo "rsync --progress $TMPDIR/$out_summary $outdir/"
 rsync --progress "$TMPDIR/$out_summary" "$outdir/"
 
 # Mark time at completion
-echo; date; echo
+echo; date +"$date_fmt"; echo

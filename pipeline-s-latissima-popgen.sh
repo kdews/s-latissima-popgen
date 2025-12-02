@@ -66,8 +66,8 @@ Analysis:
     *.dict                      GATK4-style reference genome dictionary
     *.sorted.bam                sorted alignment files of trimmed reads to 
                                 reference genome
-    *.sorted.marked.bam         sorted alignment files, duplicates marked
-    *.sorted.marked.merged.bam  sorted alignment files, merged by individual
+    *.sorted.marked.bam         sorted alignment files, duplicates marked,
+                                combined by individual ID (if possible)
   gvcfs/
     *.g.vcf.gz                  genome variant call files (gVCFs) for each
                                 individual
@@ -126,8 +126,7 @@ pipeline_config="pipeline.conf"
 user_input_config="user_input.conf"
 # File created by pipeline after parsing input genome filename
 genome_config="genome.conf"
-# Date format for output
-date_fmt="%-I:%M:%S %p (%a %d %b %Y)"
+date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 {
   echo
   echo "$pipeline_header"
@@ -294,7 +293,13 @@ miss_check () {
     do
       if [[ ! -f "checkpoints/${prefix}_$i.checkpoint" ]]
       then
-        printf "%s," "$i"
+        # Handle trailing comma
+        if [[ "$i" -eq "$array_size" ]]
+        then
+          printf "%s" "$i"
+        else
+          printf "%s," "$i"
+        fi
       fi
     done
   else
