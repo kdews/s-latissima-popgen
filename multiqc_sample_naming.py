@@ -1,23 +1,27 @@
 import os
 from pathlib import Path
 
-yaml_fn = "rename_samples.yaml"
+yaml_fn = "multiqc_rename_samples.tsv"
 qc_dir = Path("quality_control")
 yaml_lines = []
 
-for f in qc_dir.iterdir():
-    if f.suffix in [".txt", ".html", ".zip"]:
-        stem = f.stem
+# Identify the "biological sample ID" for each file
+for f in sorted(qc_dir.iterdir()):
+    if f.suffix in [".txt", ".zip", ".summary", ".stats"]:
+        stem_raw = f.stem
+        stem = stem_raw.split(".")[0]
         # Split on underscore
         parts = stem.split("_")
-        # Identify the "biological sample ID"
-        # Here we take everything up to the first numeric lane/library index or barcode (usually at position 4 or 5)
-        # Adjust the number 4 below if your IDs are longer
-        bio_sample = "_".join(parts[:4])
-        yaml_lines.append(f"{stem}: {bio_sample}")
+        if stem.startswith("I") or stem.startswith("J"):        
+            # If library ID
+            bio_sample = "_".join(parts[:6])
+        else:
+            # If sample ID
+            bio_sample = parts[0]
+        yaml_lines.append(f"{stem}\t{bio_sample}")
 
 # Remove duplicates and sort
 yaml_lines = sorted(set(yaml_lines))
 
 with open(yaml_fn, "w") as out:
-    out.write("\n".join(sorted(set(yaml_lines))))
+    out.write("\n".join(yaml_lines))

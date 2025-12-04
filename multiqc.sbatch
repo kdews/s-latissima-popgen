@@ -57,6 +57,7 @@ cmd=(
   multiqc
   -c "$multiqc_config"
   -n "$out_report"
+  # --replace-names multiqc_rename_samples.tsv
   "$indir"
 )
 echo "${cmd[*]}"
