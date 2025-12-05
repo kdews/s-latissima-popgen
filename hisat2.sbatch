@@ -83,7 +83,7 @@ hisat2 --version || exit 1
 samtools --version || exit 1
 
 # Define read groups for SAM headers from sample ID and FASTQ file read IDs
-# Input sample ID format = UniqueID_SampleID_Sequencer_Barcode_Plate_Lane_Read 
+# Input sample ID format = SampleID_Library_RunID_Barcode_Plate_Lane_Read
 # Create array 'rgs1' from sample ID by splitting on '_'
 IFS='_' read -r -a rgs1 <<< "$sample_id"
 # Read first line of FASTQ to get read ID
@@ -95,15 +95,15 @@ IFS=':' read -r -a rgs2 <<< "$read_id"
 rg_id="${rgs2[2]}.${rgs2[3]}"
 echo "Read group ID = ID:$rg_id"
 # Read group SaMple name (SM) = shortened SampleID within input sample ID (no UniqueID)
-rg_sm="${rgs1[1]}"
+rg_sm="${rgs1[0]}"
 echo "Read group sample name = SM:$rg_sm"
 # Save parsed individual ID to index file
 echo "$rg_sm" >> "$indiv_list"
 # Read group Platform Unit (PU) = {FLOWCELL_BARCODE}.{LANE}.{SAMPLE_NAME}
-rg_pu="${rgs2[2]}.${rgs2[3]}.${rgs1[1]}"
+rg_pu="${rgs2[2]}.${rgs2[3]}.${rgs1[0]}"
 echo "Read group platform unit = PU:$rg_pu"
 # Read group LiBrary identifier = SampleID-UniqueID
-rg_lb="${rgs1[1]}-${rgs1[0]}"
+rg_lb="${rgs1[0]}-${rgs1[1]}"
 echo "Read group library identifier = LB:$rg_lb"
 # Read group PLatform (PL) = ILLUMINA
 rg_pl="ILLUMINA"

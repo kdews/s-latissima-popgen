@@ -17,7 +17,6 @@ title: "Saccharina gametophyte WGS QC"
 
 # Disable the analysis paths and time in the report header
 show_analysis_paths: False
-show_analysis_time: False
 
 # Output parsed data directory in addition to the report
 data_dir_name: multiqc_data
@@ -43,20 +42,164 @@ plots_force_flat: False # Try to use only flat image graphs
 plots_force_interactive: False # Try to use only interactive javascript graphs
 plots_flat_numseries: 100 # If neither of the above, use flat if > this number of datasets
 num_datasets_plot_limit: 50 # If interactive, don't plot on load if > this number of datasets
-max_table_rows: 500 # Swap tables for a beeswarm plot above this
+# max_table_rows: 500 # Swap tables for a beeswarm plot above this
 
-# Force use log filename 
+# Customize sample naming
+# Force parse log filename (instead of parsing from QC file content)
 use_filename_as_sample_name: True
-
-# Remove assembly name from sample IDs in MultiQC report
 extra_fn_clean_exts:
+  # Remove assembly name
   - type: regex
     pattern: "_SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked"
+  # Remove any text after a period
+  - type: regex
+    pattern: "\\..*$"
 
+# Merge samples with distinct read direction & lane numbers
+table_sample_merge:
+  # Keep only individual ID
+  "Individual ID 1":
+    - type: regex_keep
+      pattern: "S[AL]-[A-Z]{2}-[0-9]{2}-[FM]G-[1-9]{2}"
+    - type: regex_keep
+      pattern: "S[AL]-[A-Z]{2}-[0-9]-[FM]G-[1-9]{2}"
+    - type: regex_keep
+      pattern: "S[AL]-[A-Z]{2}-[0-9]{2}-[FM]G-[1-9]"
+    - type: regex_keep
+      pattern: "S[AL]-[A-Z]{2}-[0-9]-[FM]G-[1-9]"
 
-# Prevent picard/markdups from overwriting stats for samples with multiple libraries
-picard_config:
-  markdups_merge_multiple_libraries: False
+  # # Library 1 Plate 1
+  # "Library 1 Plate 1":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I997_[ATGC]{8}_1_L1$"
+  # "Library 1 Plate 1 R1":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I997_[ATGC]{8}_1_L1_R1.*"
+  # "Library 1 Plate 1 R2":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I997_[ATGC]{8}_1_L1_R2.*"
+  # # Library 2 Plate 1
+  # "Library 2 Plate 1":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I997_[ATGC]{8}_1_L1$"
+  # "Library 2 Plate 1 R1":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I997_[ATGC]{8}_1_L1_R1.*"
+  # "Library 2 Plate 1 R2":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I997_[ATGC]{8}_1_L1_R2.*"
+  # # Library 1 Plate 2
+  # "Library 1 Plate 2":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1000_[ATGC]{8}_2_L2$"
+  # "Library 1 Plate 2 R1":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1000_[ATGC]{8}_2_L2_R1.*"
+  # "Library 1 Plate 2 R2":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1000_[ATGC]{8}_2_L2_R2.*"
+  # # Library 2 Plate 2
+  # "Library 2 Plate 2":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1000_[ATGC]{8}_2_L2$"
+  # "Library 2 Plate 2 R1":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1000_[ATGC]{8}_2_L2_R1.*"
+  # "Library 2 Plate 2 R2":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1000_[ATGC]{8}_2_L2_R2.*"
+  # # Library 1 Plate 3 (Run 1)
+  # "Library 1 Plate 3 (Run 1)":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1018_[ATGC]{8}_3_L1$"
+  # "Library 1 Plate 3 (Run 1) R1":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1018_[ATGC]{8}_3_L1_R1.*"
+  # "Library 1 Plate 3 (Run 1) R2":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1018_[ATGC]{8}_3_L1_R2.*"
+  # # Library 2 Plate 3 (Run 1)
+  # "Library 2 Plate 3 (Run 1)":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1018_[ATGC]{8}_3_L1$"
+  # "Library 2 Plate 3 (Run 1) R1":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1018_[ATGC]{8}_3_L1_R1.*"
+  # "Library 2 Plate 3 (Run 1) R2":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1018_[ATGC]{8}_3_L1_R2.*"
+  # # Library 1 Plate 3 (Run 2)
+  # "Library 1 Plate 3 (Run 2)":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1019_[ATGC]{8}_3_L1$"
+  # "Library 1 Plate 3 (Run 2) R1":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1019_[ATGC]{8}_3_L1_R1.*"
+  # "Library 1 Plate 3 (Run 2) R2":
+  #   - type: regex
+  #     pattern: "^I[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1019_[ATGC]{8}_3_L1_R2.*"
+  # # Library 2 Plate 3 (Run 2)
+  # "Library 2 Plate 3 (Run 2)":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1019_[ATGC]{8}_3_L1$"
+  # "Library 2 Plate 3 (Run 2) R1":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1019_[ATGC]{8}_3_L1_R1.*"
+  # "Library 2 Plate 3 (Run 2) R2":
+  #   - type: regex
+  #     pattern: "^J[A-Z]{3}_"
+  #   - type: regex
+  #     pattern: "_I1019_[ATGC]{8}_3_L1_R2.*"
+
+# # Prevent picard/markdups from overwriting stats for samples with multiple libraries
+# picard_config:
+#   markdups_merge_multiple_libraries: False
 
 # Overwrite module filename search patterns. See multiqc/utils/search_patterns.yaml
 # for the defaults. Remove a default by setting it to null.
@@ -90,7 +233,8 @@ sp:
   picard/rrbs_metrics:
     skip: true
   picard/sam_file_validation:
-    fn: "*.validate.summary"
+    # fn: "*.validate.summary"
+    skip: true
   picard/variant_calling_metrics:
     skip: true
   picard/wgs_metrics:
@@ -113,7 +257,7 @@ module_order:
   - picard/wgs_metrics
   - picard/markdups
   - hisat2
-  - picard/sam_file_validation
+  # - picard/sam_file_validation
   - fastqc:
       name: "FastQC (trimmed)"
       anchor: "fastqc_trimmed"
@@ -121,6 +265,7 @@ module_order:
       target: ""
       path_filters:
         - "*val_1_fastqc.zip"
+        - "*val_2_fastqc.zip"
   - cutadapt
   - fastqc:
       name: "FastQC (raw)"
@@ -128,4 +273,5 @@ module_order:
       anchor: "fastqc_raw"
       path_filters:
         - "*_R1_fastqc.zip"
+        - "*_R2_fastqc.zip"
 
