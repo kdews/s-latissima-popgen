@@ -2,7 +2,7 @@
 #SBATCH -J hisat2
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=02:00:00
-#SBATCH --mem=45g
+#SBATCH --mem=145g
 #SBATCH --cpus-per-task=16
 
 # Log Slurm job details

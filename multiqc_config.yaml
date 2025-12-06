@@ -40,8 +40,8 @@ no_version_check: True
 # to prevent the browser being locked up when the report opens.
 plots_force_flat: False # Try to use only flat image graphs
 plots_force_interactive: False # Try to use only interactive javascript graphs
-plots_flat_numseries: 100 # If neither of the above, use flat if > this number of datasets
-num_datasets_plot_limit: 50 # If interactive, don't plot on load if > this number of datasets
+# plots_flat_numseries: 100 # If neither of the above, use flat if > this number of datasets
+# num_datasets_plot_limit: 50 # If interactive, don't plot on load if > this number of datasets
 # max_table_rows: 500 # Swap tables for a beeswarm plot above this
 
 # Customize sample naming
@@ -51,155 +51,19 @@ extra_fn_clean_exts:
   # Remove assembly name
   - type: regex
     pattern: "_SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked"
-  # Remove any text after a period
+  # Remove any text after first period
   - type: regex
     pattern: "\\..*$"
 
-# Merge samples with distinct read direction & lane numbers
-table_sample_merge:
-  # Keep only individual ID
-  "Individual ID 1":
-    - type: regex_keep
-      pattern: "S[AL]-[A-Z]{2}-[0-9]{2}-[FM]G-[1-9]{2}"
-    - type: regex_keep
-      pattern: "S[AL]-[A-Z]{2}-[0-9]-[FM]G-[1-9]{2}"
-    - type: regex_keep
-      pattern: "S[AL]-[A-Z]{2}-[0-9]{2}-[FM]G-[1-9]"
-    - type: regex_keep
-      pattern: "S[AL]-[A-Z]{2}-[0-9]-[FM]G-[1-9]"
-
-  # # Library 1 Plate 1
-  # "Library 1 Plate 1":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I997_[ATGC]{8}_1_L1$"
-  # "Library 1 Plate 1 R1":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I997_[ATGC]{8}_1_L1_R1.*"
-  # "Library 1 Plate 1 R2":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I997_[ATGC]{8}_1_L1_R2.*"
-  # # Library 2 Plate 1
-  # "Library 2 Plate 1":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I997_[ATGC]{8}_1_L1$"
-  # "Library 2 Plate 1 R1":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I997_[ATGC]{8}_1_L1_R1.*"
-  # "Library 2 Plate 1 R2":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I997_[ATGC]{8}_1_L1_R2.*"
-  # # Library 1 Plate 2
-  # "Library 1 Plate 2":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1000_[ATGC]{8}_2_L2$"
-  # "Library 1 Plate 2 R1":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1000_[ATGC]{8}_2_L2_R1.*"
-  # "Library 1 Plate 2 R2":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1000_[ATGC]{8}_2_L2_R2.*"
-  # # Library 2 Plate 2
-  # "Library 2 Plate 2":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1000_[ATGC]{8}_2_L2$"
-  # "Library 2 Plate 2 R1":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1000_[ATGC]{8}_2_L2_R1.*"
-  # "Library 2 Plate 2 R2":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1000_[ATGC]{8}_2_L2_R2.*"
-  # # Library 1 Plate 3 (Run 1)
-  # "Library 1 Plate 3 (Run 1)":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1018_[ATGC]{8}_3_L1$"
-  # "Library 1 Plate 3 (Run 1) R1":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1018_[ATGC]{8}_3_L1_R1.*"
-  # "Library 1 Plate 3 (Run 1) R2":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1018_[ATGC]{8}_3_L1_R2.*"
-  # # Library 2 Plate 3 (Run 1)
-  # "Library 2 Plate 3 (Run 1)":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1018_[ATGC]{8}_3_L1$"
-  # "Library 2 Plate 3 (Run 1) R1":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1018_[ATGC]{8}_3_L1_R1.*"
-  # "Library 2 Plate 3 (Run 1) R2":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1018_[ATGC]{8}_3_L1_R2.*"
-  # # Library 1 Plate 3 (Run 2)
-  # "Library 1 Plate 3 (Run 2)":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1019_[ATGC]{8}_3_L1$"
-  # "Library 1 Plate 3 (Run 2) R1":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1019_[ATGC]{8}_3_L1_R1.*"
-  # "Library 1 Plate 3 (Run 2) R2":
-  #   - type: regex
-  #     pattern: "^I[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1019_[ATGC]{8}_3_L1_R2.*"
-  # # Library 2 Plate 3 (Run 2)
-  # "Library 2 Plate 3 (Run 2)":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1019_[ATGC]{8}_3_L1$"
-  # "Library 2 Plate 3 (Run 2) R1":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1019_[ATGC]{8}_3_L1_R1.*"
-  # "Library 2 Plate 3 (Run 2) R2":
-  #   - type: regex
-  #     pattern: "^J[A-Z]{3}_"
-  #   - type: regex
-  #     pattern: "_I1019_[ATGC]{8}_3_L1_R2.*"
-
-# # Prevent picard/markdups from overwriting stats for samples with multiple libraries
-# picard_config:
-#   markdups_merge_multiple_libraries: False
+# Run only these modules
+run_modules:
+  - bcftools
+  - gatk
+  - samtools
+  - picard
+  - hisat2
+  - cutadapt
+  - fastqc
 
 # Overwrite module filename search patterns. See multiqc/utils/search_patterns.yaml
 # for the defaults. Remove a default by setting it to null.
@@ -233,7 +97,6 @@ sp:
   picard/rrbs_metrics:
     skip: true
   picard/sam_file_validation:
-    # fn: "*.validate.summary"
     skip: true
   picard/variant_calling_metrics:
     skip: true
@@ -257,11 +120,10 @@ module_order:
   - picard/wgs_metrics
   - picard/markdups
   - hisat2
-  # - picard/sam_file_validation
   - fastqc:
       name: "FastQC (trimmed)"
       anchor: "fastqc_trimmed"
-      info: "This section of the report shows FastQC results AFTER adapter trimming."
+      info: "This section shows FastQC results after read trimming."
       target: ""
       path_filters:
         - "*val_1_fastqc.zip"
@@ -269,9 +131,92 @@ module_order:
   - cutadapt
   - fastqc:
       name: "FastQC (raw)"
-      info: "This section of the report shows FastQC results BEFORE adapter trimming."
+      info: "This section shows FastQC results before read trimming."
       anchor: "fastqc_raw"
       path_filters:
         - "*_R1_fastqc.zip"
         - "*_R2_fastqc.zip"
 
+# Configure MultiQC's General Statistics Table
+# Parse sample IDs to separate out library, plate, and read direction
+table_sample_merge:
+  # Library I Plate 1
+  "Library I Plate 1":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I997_[ATGC]{8}_1_L1$"
+  "Library I Plate 1 R1":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I997_[ATGC]{8}_1_L1_R1.*"
+  "Library I Plate 1 R2":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I997_[ATGC]{8}_1_L1_R2.*"
+  # Library J Plate 1
+  "Library J Plate 1":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I997_[ATGC]{8}_1_L1$"
+  "Library J Plate 1 R1":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I997_[ATGC]{8}_1_L1_R1.*"
+  "Library J Plate 1 R2":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I997_[ATGC]{8}_1_L1_R2.*"
+  # Library I Plate 2
+  "Library I Plate 2":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1000_[ATGC]{8}_2_L2$"
+  "Library I Plate 2 R1":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1000_[ATGC]{8}_2_L2_R1.*"
+  "Library I Plate 2 R2":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1000_[ATGC]{8}_2_L2_R2.*"
+  # Library J Plate 2
+  "Library J Plate 2":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1000_[ATGC]{8}_2_L2$"
+  "Library J Plate 2 R1":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1000_[ATGC]{8}_2_L2_R1.*"
+  "Library J Plate 2 R2":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1000_[ATGC]{8}_2_L2_R2.*"
+  # Library I Plate 3 (Run 1)
+  "Library I Plate 3 (Run 1)":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1018_[ATGC]{8}_3_L1$"
+  "Library I Plate 3 (Run 1) R1":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1018_[ATGC]{8}_3_L1_R1.*"
+  "Library I Plate 3 (Run 1) R2":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1018_[ATGC]{8}_3_L1_R2.*"
+  # Library J Plate 3 (Run 1)
+  "Library J Plate 3 (Run 1)":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1018_[ATGC]{8}_3_L1$"
+  "Library J Plate 3 (Run 1) R1":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1018_[ATGC]{8}_3_L1_R1.*"
+  "Library J Plate 3 (Run 1) R2":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1018_[ATGC]{8}_3_L1_R2.*"
+  # Library I Plate 3 (Run 2)
+  "Library I Plate 3 (Run 2)":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1019_[ATGC]{8}_3_L1$"
+  "Library I Plate 3 (Run 2) R1":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1019_[ATGC]{8}_3_L1_R1.*"
+  "Library I Plate 3 (Run 2) R2":
+    - type: regex
+      pattern: "_I[A-Z]{3}_I1019_[ATGC]{8}_3_L1_R2.*"
+  # Library J Plate 3 (Run 2)
+  "Library J Plate 3 (Run 2)":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1019_[ATGC]{8}_3_L1$"
+  "Library J Plate 3 (Run 2) R1":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1019_[ATGC]{8}_3_L1_R1.*"
+  "Library J Plate 3 (Run 2) R2":
+    - type: regex
+      pattern: "_J[A-Z]{3}_I1019_[ATGC]{8}_3_L1_R2.*"
