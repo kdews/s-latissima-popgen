@@ -124,6 +124,10 @@ pipeline_log="queen.log"
 pipeline_config="pipeline.conf"
 # User-defined input config file
 user_input_config="user_input.conf"
+# Pipeline functions
+pipeline_func="pipeline_functions.sh"
+# Configure logging for functions
+PIPELINE_LOGGING_ENABLED=true
 # File created by pipeline after parsing input genome filename
 genome_config="genome.conf"
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
@@ -147,13 +151,14 @@ fi
 # If scripts directory exists, change to realpath and append '/' to name
 if [[ -d "$scripts_dir" ]]
 then
-  scripts_dir="$(realpath -e "$scripts_dir")"
+  scripts_dir="$(realpath -se --relative-to=. "$scripts_dir")"
   scripts_dir="$scripts_dir/"
   echo "Path to scripts: $scripts_dir" >> "$pipeline_log"
   # Prepend scripts path to config filenames
-  pipeline_config="$(realpath -e "$scripts_dir/$pipeline_config")"
-  user_input_config="$(realpath -e "$scripts_dir/$user_input_config")"
-  genome_config="$(realpath -e "$scripts_dir/$genome_config")"
+  pipeline_config="$(realpath -se --relative-to=. "$scripts_dir/$pipeline_config")"
+  user_input_config="$(realpath -se --relative-to=. "$scripts_dir/$user_input_config")"
+  pipeline_func="$(realpath -se --relative-to=. "$scripts_dir/$pipeline_func")"
+  genome_config="$(realpath -se --relative-to=. "$scripts_dir/$genome_config")"
 else
   echo "Path to scripts (current directory): $(pwd)" >> "$pipeline_log"
 fi
@@ -163,12 +168,16 @@ fi
   echo "Sourcing config files."
   echo "Pipeline config: $pipeline_config"
   echo "User input config: $user_input_config"
+  echo "Pipeline functions: $pipeline_func"
   echo
 } >> "$pipeline_log"
-if [[ -f "$pipeline_config" ]] && [[ -f "$user_input_config" ]]
+if [[ -f "$pipeline_config" ]] \
+  && [[ -f "$user_input_config" ]] \
+  && [[ -f "$pipeline_func" ]]
 then
   source "$pipeline_config"
   source "$user_input_config"
+  source "$pipeline_func"
 else
   echo "Error - verify config file paths." >> "$pipeline_log"
   exit 1
@@ -199,10 +208,8 @@ then
 else
   st="$(( sleep_time / 60 )) minute(s)"
 fi
-{
-  echo "Wait time between checking for checkpoints set to: $st"
-  echo
-} >> "$pipeline_log"
+_log "Wait time between checking for checkpoints set to: $st"
+_log
 
 # Validate and parse user-defined variables
 # If genome file exists, change name to realpath
@@ -210,7 +217,7 @@ if [[ -f "$genome" ]]
 then
   genome="$(realpath -e "$genome")"
 else
-  echo "Genome file ($genome) not found." >> "$pipeline_log"
+  _log "Genome file ($genome) not found."
   exit 1
 fi
 # If path to raw reads exists, change name to realpath
@@ -218,13 +225,8 @@ if [[ -d "$raw_reads_dir" ]]
 then
   raw_reads_dir="$(realpath -e "$raw_reads_dir")"
 else
-  echo "Reads directory ($raw_reads_dir) not found." >> "$pipeline_log"
+  _log "Reads directory ($raw_reads_dir) not found."
   exit 1
-fi
-# Maximum number of jobs to launch concurrently (default: 50)
-if [[ -z "$max_run" ]]
-then
-  max_run=50
 fi
 
 # Configure genome filenames for consistent references
@@ -249,165 +251,165 @@ genome_idx="$genome_idx"
 ht2_idx="$ht2_idx"
 EOF
 
-# Functions
-# Function lists checkpoint files for a step ($prefix)
-ls_check () {
-  local prefix
-  prefix="$1"
-  if [[ -z "$prefix" ]]
-  then
-    {
-      date +"$date_fmt"
-      echo "Error - no arguments given to 'ls_check'."
-    } >> "$pipeline_log"
-    exit 1
-  fi
-  # Check for array-formatted checkpoint files first
-  len="$(find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint" | wc -l)"
-  if (( len > 0 ))
-  then
-    find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint"
-  else
-    find checkpoints -type f -name "$prefix.checkpoint"
-  fi
-}
-# Function identifies checkpoint files for a step ($prefix) and
-# returns a string of array indices (e.g., 1,2,4,) for missing checkpoint files
-miss_check () {
-  local prefix
-  local array_size
-  prefix="$1"
-  array_size="$2"
-  if [[ $# -ne 2 ]]
-  then
-    {
-      date +"$date_fmt"
-      echo "Error - 'miss_check' expected 2 arguments but received $#."
-      echo "Arguments: $*"
-    } >> "$pipeline_log"
-    exit 1
-  fi
-  if [[ -n "$(ls_check "$prefix")" ]]
-  then
-    for i in $(seq "$array_size")
-    do
-      if [[ ! -f "checkpoints/${prefix}_$i.checkpoint" ]]
-      then
-        # Handle trailing comma
-        if [[ "$i" -eq "$array_size" ]]
-        then
-          printf "%s" "$i"
-        else
-          printf "%s," "$i"
-        fi
-      fi
-    done
-  else
-    echo "Error - no checkpoints found for step: $prefix" >> "$pipeline_log"
-    exit 1
-  fi
-}
-# Function runs job step (unless previous run succeeded)
-# For array jobs, will submit only array indices for missing checkpoints
-run_step () {
-  local array_size
-  local prefix
-  local step_args
-  local sbatch_file
-  local logfile
-  local num_checks
-  local array_indices
-  local array_flag
-  local cmd
+# # Functions for pipeline execution
+# # Function lists checkpoint files for a step ($prefix)
+# ls_check () {
+#   local prefix
+#   prefix="$1"
+#   if [[ -z "$prefix" ]]
+#   then
+#     {
+#       date +"$date_fmt"
+#       echo "Error - no arguments given to 'ls_check'."
+#     } >> "$pipeline_log"
+#     exit 1
+#   fi
+#   # Check for array-formatted checkpoint files first
+#   len="$(find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint" | wc -l)"
+#   if (( len > 0 ))
+#   then
+#     find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint"
+#   else
+#     find checkpoints -type f -name "$prefix.checkpoint"
+#   fi
+# }
+# # Function identifies checkpoint files for a step ($prefix) and
+# # returns a string of array indices (e.g., 1,2,4,) for missing checkpoint files
+# miss_check () {
+#   local prefix
+#   local array_size
+#   prefix="$1"
+#   array_size="$2"
+#   if [[ $# -ne 2 ]]
+#   then
+#     {
+#       date +"$date_fmt"
+#       echo "Error - 'miss_check' expected 2 arguments but received $#."
+#       echo "Arguments: $*"
+#     } >> "$pipeline_log"
+#     exit 1
+#   fi
+#   if [[ -n "$(ls_check "$prefix")" ]]
+#   then
+#     for i in $(seq "$array_size")
+#     do
+#       if [[ ! -f "checkpoints/${prefix}_$i.checkpoint" ]]
+#       then
+#         # Handle trailing comma
+#         if [[ "$i" -eq "$array_size" ]]
+#         then
+#           printf "%s" "$i"
+#         else
+#           printf "%s," "$i"
+#         fi
+#       fi
+#     done
+#   else
+#     echo "Error - no checkpoints found for step: $prefix" >> "$pipeline_log"
+#     exit 1
+#   fi
+# }
+# # Function runs job step (unless previous run succeeded)
+# # For array jobs, will submit only array indices for missing checkpoints
+# run_step () {
+#   local array_size
+#   local prefix
+#   local step_args
+#   local sbatch_file
+#   local logfile
+#   local num_checks
+#   local array_indices
+#   local array_flag
+#   local cmd
 
-  # Arguments to function
-  array_size="$1" # array size for job (integer)
-  prefix="$2" # prefix of sbatch file for job (string)
-  # Parse repeat calls to same sbatch file (prefix=<prefix>-#)
-  prefix_base="${prefix%-[0-9]*}"
+#   # Arguments to function
+#   array_size="$1" # array size for job (integer)
+#   prefix="$2" # prefix of sbatch file for job (string)
+#   # Parse repeat calls to same sbatch file (prefix=<prefix>-#)
+#   prefix_base="${prefix%-[0-9]*}"
 
-  # Log function call
-  echo "run_step $*" >> "$pipeline_log"
+#   # Log function call
+#   echo "run_step $*" >> "$pipeline_log"
   
-  # Name sbatch file from prefix BASE (no increments)
-  sbatch_file="${scripts_dir}$prefix_base.sbatch"
+#   # Name sbatch file from prefix BASE (no increments)
+#   sbatch_file="${scripts_dir}$prefix_base.sbatch"
 
-  # Name log file(s)
-  if (( array_size > 1 ))
-  then
-    # For array jobs, write logs to directory <prefix>_logs
-    # Shoutout GOATED Slurm release 23.02
-    logfile="%x_logs/%x_%a.log"
-  else
-    # For single jobs, write log to working directory
-    logfile="%x.log"
-  fi
+#   # Name log file(s)
+#   if (( array_size > 1 ))
+#   then
+#     # For array jobs, write logs to directory <prefix>_logs
+#     # Shoutout GOATED Slurm release 23.02
+#     logfile="%x_logs/%x_%a.log"
+#   else
+#     # For single jobs, write log to working directory
+#     logfile="%x.log"
+#   fi
 
-  # Check for any existing checkpoints for prefix
-  if [[ -n "$(ls_check "$prefix")" ]]
-  then
-    num_checks="$(ls_check "$prefix" | wc -l)" # count of checkpoint files
-    echo "$num_checks checkpoint(s) detected for $prefix" >> "$pipeline_log"
-    # Skip job step if all checkpoints exist
-    if [[ "$num_checks" -eq "$array_size" ]]
-    then
-      echo "$prefix step already run. Skipping." >> "$pipeline_log"
-      return 0
-    # If some checkpoints missing for array jobs, submit only those array indices
-    elif (( array_size > 1 ))
-    then
-      # Use missing checkpoints to set array indices for submission
-      array_indices="$(miss_check "$prefix" "$array_size")"
-      array_flag="--array=$array_indices%$max_run"
-      {
-        echo "Missing checkpoints for $prefix step. Restarting."
-        echo "Submitting job array indices: $array_indices"
-      } >> "$pipeline_log"
-    # Catch unexpected checkpoint errors
-    else
-      echo "Error - inspect checkpoints for step: $prefix" >> "$pipeline_log"
-      return 1
-    fi
-  else
-    # Set sbatch --array flag for array jobs
-    (( array_size > 1 )) && array_flag="--array=1-$array_size%$max_run"
-    echo "Running $prefix step." >> "$pipeline_log"
-  fi
-  # Pass arguments to specific step script
-  step_args=(
-    "$prefix" # $1 to sbatch file
-    "$genome_config" # $2 to sbatch file
-    "${@:3}" # captures all remaining arguments to function
-  )
-  # Job submission command
-  if [[ -n "$array_flag" ]]
-  then
-    cmd=(
-      sbatch
-      --parsable
-      -p "$partition"
-      -J "$prefix"
-      -o "$logfile"
-      "$array_flag"
-      "$sbatch_file"
-      "${step_args[@]}"
-    )
-  else
-    cmd=(
-      sbatch
-      --parsable
-      -p "$partition"
-      -J "$prefix"
-      -o "$logfile"
-      "$sbatch_file"
-      "${step_args[@]}"
-    )
-  fi
-  # Log job submission
-  echo "${cmd[*]}" >> "$pipeline_log"
-  jobid="$("${cmd[@]}")"
-  echo "Submitted batch job $jobid" >> "$pipeline_log"
-}
+#   # Check for any existing checkpoints for prefix
+#   if [[ -n "$(ls_check "$prefix")" ]]
+#   then
+#     num_checks="$(ls_check "$prefix" | wc -l)" # count of checkpoint files
+#     echo "$num_checks checkpoint(s) detected for $prefix" >> "$pipeline_log"
+#     # Skip job step if all checkpoints exist
+#     if [[ "$num_checks" -eq "$array_size" ]]
+#     then
+#       echo "$prefix step already run. Skipping." >> "$pipeline_log"
+#       return 0
+#     # If some checkpoints missing for array jobs, submit only those array indices
+#     elif (( array_size > 1 ))
+#     then
+#       # Use missing checkpoints to set array indices for submission
+#       array_indices="$(miss_check "$prefix" "$array_size")"
+#       array_flag="--array=$array_indices%$max_run"
+#       {
+#         echo "Missing checkpoints for $prefix step. Restarting."
+#         echo "Submitting job array indices: $array_indices"
+#       } >> "$pipeline_log"
+#     # Catch unexpected checkpoint errors
+#     else
+#       echo "Error - inspect checkpoints for step: $prefix" >> "$pipeline_log"
+#       return 1
+#     fi
+#   else
+#     # Set sbatch --array flag for array jobs
+#     (( array_size > 1 )) && array_flag="--array=1-$array_size%$max_run"
+#     echo "Running $prefix step." >> "$pipeline_log"
+#   fi
+#   # Pass arguments to specific step script
+#   step_args=(
+#     "$prefix" # $1 to sbatch file
+#     "$genome_config" # $2 to sbatch file
+#     "${@:3}" # captures all remaining arguments to function
+#   )
+#   # Job submission command
+#   if [[ -n "$array_flag" ]]
+#   then
+#     cmd=(
+#       sbatch
+#       --parsable
+#       -p "$partition"
+#       -J "$prefix"
+#       -o "$logfile"
+#       "$array_flag"
+#       "$sbatch_file"
+#       "${step_args[@]}"
+#     )
+#   else
+#     cmd=(
+#       sbatch
+#       --parsable
+#       -p "$partition"
+#       -J "$prefix"
+#       -o "$logfile"
+#       "$sbatch_file"
+#       "${step_args[@]}"
+#     )
+#   fi
+#   # Log job submission
+#   echo "${cmd[*]}" >> "$pipeline_log"
+#   jobid="$("${cmd[@]}")"
+#   echo "Submitted batch job $jobid" >> "$pipeline_log"
+# }
 
 # Array containing arguments to each step of pipeline
 PIPELINE_STEPS=(
@@ -447,55 +449,52 @@ do
     # Waits until # of checkpoint files = array size
     until [[ "$(ls_check "$dep_prefix" | wc -l)" -eq "$dep_size" ]]
     do
-      {
-        date +"$date_fmt"
-        echo "Waiting $st for completion of $dep_prefix step."
-      } >> "$pipeline_log"
+      _log "Waiting $st for completion of $dep_prefix step."
       sleep "$sleep_time"
     done
     # Step-specific tasks
     # After hisat2 step: sort individual ID list
     if [[ "$dep_prefix" = "hisat2" ]] && [[ -f "$indiv_list" ]]
     then
-      echo "Sorting $indiv_list for unique invidual IDs." >> "$pipeline_log"
+      _log "Sorting $indiv_list for unique invidual IDs."
       # Sort and keep only non-empty lines
       sort -u "$indiv_list" | grep -v -x '[[:blank:]]*' > "${indiv_list}_sorted"
       mv "${indiv_list}_sorted" "$indiv_list"
     elif [[ "$dep_prefix" = "hisat2" ]] && [[ ! -f "$indiv_list" ]]
     then
-      echo "Error - invidual ID list ($indiv_list) not found." >> "$pipeline_log"
+      _log "Error - invidual ID list ($indiv_list) not found."
       exit 1
     fi
     # After haplotype_caller step: create gVCF list
     if [[ "$dep_prefix" = "haplotype_caller" ]]
     then
-      echo "Creating list of gVCFs: $gvcf_list" >> "$pipeline_log"
+      _log "Creating list of gVCFs: $gvcf_list"
       find "$gvcfs_dir" -type f -name "*$genome_base.g.vcf.gz" > "$gvcf_list"
       if [[ "$(wc -l < "$gvcf_list")" -ne "$dep_size" ]]
       then
-        echo "Error - incorrect # of files in $gvcf_list" >> "$pipeline_log"
+        _log "Error - incorrect # of files in $gvcf_list"
         exit 1
       fi
     fi
     # After genotype_gvcfs step: create VCF list
     if [[ "$dep_prefix" = "genotype_gvcfs" ]]
     then
-      echo "Creating list of VCF files: $vcf_list" >> "$pipeline_log"
+      _log "Creating list of VCF files: $vcf_list"
       find "$vcfs_dir" -type f -name "*$genome_base.vcf.gz" > "$vcf_list"
       if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
       then
-        echo "Error - incorrect # of files in $vcf_list"  >> "$pipeline_log"
+        _log "Error - incorrect # of files in $vcf_list"
         exit 1
       fi
     fi
     # After sort_vcf step: overwrite VCF list with sorted VCF filenames
     if [[ "$dep_prefix" = "sort_vcf" ]]
     then
-      echo "Overwritting VCF list: $vcf_list" >> "$pipeline_log"
+      _log "Overwritting VCF list: $vcf_list"
       find "$vcfs_dir" -type f -name "*$genome_base.sorted.vcf.gz" > "$vcf_list"
       if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
       then
-        echo "Error - incorrect # of files in $vcf_list" >> "$pipeline_log"
+        _log "Error - incorrect # of files in $vcf_list"
         exit 1
       fi
     fi
@@ -513,10 +512,7 @@ do
   ((count > 1)) && prefix="${prefix}-$count" # append "-n" to repeat $prefix
 
   # Log step
-  {
-    date +"$date_fmt"
-    echo "Step #$((step + 1)): $prefix"
-  } >> "$pipeline_log"
+  _log "Step #$((step + 1)): $prefix"
 
   # Parse batch array jobs
   if [[ "${args[1]}" = "--array" ]]
@@ -528,24 +524,24 @@ do
       array_size="$(wc -l < "$index_file")"
       args=( "$prefix" "${args[@]:2}" )
     else
-      echo "Error - index file ($index_file) not found."  >> "$pipeline_log"
+      _log "Error - index file ($index_file) not found."
       exit 1
     fi
   else
     # Set array size
     array_size=1
   fi
-  echo "Array size set to: $array_size" >> "$pipeline_log"
+  _log "Array size set to: $array_size"
 
   # Run pipeline step
-  run_step "$array_size" "${args[@]}"
+  run_step "$array_size" "$genome_config" "${args[@]}"
 
   # Update dependency info for next step
   dep_prefix="$prefix"
   dep_size="$array_size"
   
-  echo >> "$pipeline_log"
+  _log
 done
 
 # Pipeline end
-echo "Pipeline completed at $(date +"$date_fmt")"
+_log "Pipeline completed."
