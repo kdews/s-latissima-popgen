@@ -209,6 +209,7 @@ else
   st="$(( sleep_time / 60 )) minute(s)"
 fi
 _log "Wait time between checking for checkpoints set to: $st"
+_log "Maximum jobs to launch simultaneously set to: $max_run"
 _log
 
 # Validate and parse user-defined variables
@@ -424,7 +425,7 @@ PIPELINE_STEPS=(
   "mark_dupes|--array|$bams_dir|$bams_dir|$indiv_list|$qc_dir"
   "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
   "collect_metrics|--array|$bams_dir|$qc_dir|$indiv_list"
-  "bam_stats|--array|$bams_dir|$qc_dir|$indiv_list"
+  # "bam_stats|--array|$bams_dir|$qc_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
   "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_list"
   "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"

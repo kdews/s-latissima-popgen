@@ -83,7 +83,7 @@ run_step () {
   local prefix="$3" # prefix of sbatch file for job (string)
 
   # Maximum number of jobs to launch concurrently (takes global var max_run)
-  local max_run="${max_run:-50}" # default = 50
+  local max_run="${max_run:-30}" # default = 30
   # Name of scripts directory (takes global var scripts_dir)
   local scripts_dir="${scripts_dir:-s-latissima-popgen/}" # default = s-latissima-popgen/
   # Name of Slurm partition to use (takes global)

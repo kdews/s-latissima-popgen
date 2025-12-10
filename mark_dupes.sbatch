@@ -37,8 +37,12 @@ fi
 
 # Parse indiviual ID
 indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
+echo "Individual ID: $indiv_id"
 # Generate array of input BAM filenames associated with individual ID
-mapfile -t input_bams < <(find "$indir" -type f -name "^${indiv_id}_*.sorted.bam")
+mapfile -t input_bams < <(find "$indir" -type f -name "${indiv_id}_*.sorted.bam")
+echo "Input BAM file(s):"
+echo "${input_bams[*]}"
+echo
 # Output marked BAM file
 out_bam="${indiv_id}_$genome_base.sorted.marked.bam"
 # QC metrics for marked duplicates

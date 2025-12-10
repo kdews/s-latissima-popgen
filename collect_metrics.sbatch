@@ -2,7 +2,8 @@
 #SBATCH -J collect_metrics
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=20g
+#SBATCH --mem=30g
+#SBATCH --cpus-per-task=12
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -51,6 +52,8 @@ insert_pdf="$uniq_id.insert_size_histogram.pdf"
 qy_metrics="$uniq_id.quality_yield_metrics.txt"
 # CollectWgsMetrics
 wgs_metrics="$uniq_id.collect_wgs_metrics.txt"
+# samtools stats
+stats_file="$uniq_id.stats"
 
 # Use temporary storage for computations
 echo "rsync --progress $indir/$in_bam $TMPDIR/"
@@ -106,9 +109,38 @@ wgs_cmd=(
 echo "${wgs_cmd[*]}"
 "${wgs_cmd[@]}"
 
-# Copy all resulting TXT and PDF files from temporary storage
+# Unload GATK4 env
+module purge
+
+# Load conda
+cond=~/.conda_for_sbatch.sh
+if [[ -f "$cond" ]]
+then
+  source "$cond"
+else
+  echo "Error on source of $cond"
+  exit 1
+fi
+
+# Load samtools
+conda activate samtools
+samtools --version || exit 1
+
+# Run samtools stats
+cmd=(
+  samtools stats
+  -@ "$SLURM_CPUS_PER_TASK"
+  -r "$genome_local_unzip"
+  "$TMPDIR/$in_bam"
+)
+echo "${cmd[*]} > $TMPDIR/$stats_file"
+"${cmd[@]}" > "$TMPDIR/$stats_file"
+
+# Copy all resulting .txt, .stats, & .pdf files from temporary storage
 echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.txt $outdir/"
 rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.txt "$outdir/"
+echo "rsync --progress $TMPDIR/$stats_file $outdir/"
+rsync --progress "$TMPDIR/$stats_file" "$outdir/"
 echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.pdf $outdir/"
 rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.pdf "$outdir/"
 
@@ -122,7 +154,8 @@ if [[ -f "$outdir/$align_metrics" ]] \
   && [[ -f "$outdir/$insert_metrics" ]] \
   && [[ -f "$outdir/$insert_pdf" ]] \
   && [[ -f "$outdir/$qy_metrics" ]] \
-  && [[ -f "$outdir/$wgs_metrics" ]]
+  && [[ -f "$outdir/$wgs_metrics" ]] \
+  && [[ -f "$outdir/$stats_file" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
@@ -135,6 +168,7 @@ else
   echo "$outdir/$insert_pdf"
   echo "$outdir/$qy_metrics"
   echo "$outdir/$wgs_metrics"
+  echo "$outdir/$stats_file"
   echo "Checkpoint not created."
   exit 1
 fi

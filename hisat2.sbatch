@@ -155,6 +155,7 @@ module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version || exit 1
 
 # Fix read mate pairs with GATK4
+# HISAT2 incorrectly doesn't set 0x20 for unmapped reads with reverse-mapped mate
 fixmate_cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
