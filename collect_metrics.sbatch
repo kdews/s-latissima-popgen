@@ -2,7 +2,7 @@
 #SBATCH -J collect_metrics
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=30g
+#SBATCH --mem=35g
 #SBATCH --cpus-per-task=12
 
 # Log Slurm job details

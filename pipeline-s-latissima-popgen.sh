@@ -423,7 +423,7 @@ PIPELINE_STEPS=(
   "hisat2|--array|$trimmed_dir|$bams_dir|$samples_list|$qc_dir|$indiv_list"
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
   "mark_dupes|--array|$bams_dir|$bams_dir|$indiv_list|$qc_dir"
-  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
+  # "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
   "collect_metrics|--array|$bams_dir|$qc_dir|$indiv_list"
   # "bam_stats|--array|$bams_dir|$qc_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
