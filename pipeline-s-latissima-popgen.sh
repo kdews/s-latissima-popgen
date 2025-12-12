@@ -52,7 +52,7 @@ Analysis:
     samples_list.txt            indexes sample IDs
     individuals_file.txt        indexes individual IDs
     intervals_list.txt          indexes split interval lists
-    gvcf.list                   indexes gVCF files 
+    gvcf.sample_map             GATK4-style sample map for gVCF files 
     vcf.list                    indexes VCF files (in numerical order)
   wgs/                        
     *.fastq.gz                  FASTQ files renamed to shorter sample IDs 
@@ -423,13 +423,12 @@ PIPELINE_STEPS=(
   "hisat2|--array|$trimmed_dir|$bams_dir|$samples_list|$qc_dir|$indiv_list"
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
   "mark_dupes|--array|$bams_dir|$bams_dir|$indiv_list|$qc_dir"
-  # "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
+  "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
   "collect_metrics|--array|$bams_dir|$qc_dir|$indiv_list"
-  # "bam_stats|--array|$bams_dir|$qc_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
-  "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_list"
+  "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_map"
   "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"
-  "genomicsdbimport|--array|$gvcfs_dir|$genomicsdbimport_dir|$intervals_list|$gvcf_list"
+  "genomicsdbimport|--array|$gvcfs_dir|$genomicsdbimport_dir|$intervals_list|$gvcf_map"
   "genotype_gvcfs|--array|$gvcfs_dir|$vcfs_dir|$indiv_list"
   "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$vcf_list"
   "validate_variants|--array|$vcfs_dir|$qc_dir|$vcf_list"
@@ -469,11 +468,16 @@ do
     # After haplotype_caller step: create gVCF list
     if [[ "$dep_prefix" = "haplotype_caller" ]]
     then
-      _log "Creating list of gVCFs: $gvcf_list"
-      find "$gvcfs_dir" -type f -name "*$genome_base.g.vcf.gz" > "$gvcf_list"
-      if [[ "$(wc -l < "$gvcf_list")" -ne "$dep_size" ]]
+      _log "Creating sample map file of gVCFs: $gvcf_map"
+      mapfile -t indivs < "$indiv_list"
+      for id in "${indivs[@]}"
+      do
+        echo "$id"
+      done
+      find "$gvcfs_dir" -type f -name "*$genome_base.g.vcf.gz" > "$gvcf_map"
+      if [[ "$(wc -l < "$gvcf_map")" -ne "$dep_size" ]]
       then
-        _log "Error - incorrect # of files in $gvcf_list"
+        _log "Error - incorrect # of files in $gvcf_map"
         exit 1
       fi
     fi

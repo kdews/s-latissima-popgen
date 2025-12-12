@@ -21,12 +21,8 @@ outdir="$4" # parent output directory containing subdirectories
 intervals_list="$5" # text file listing interval filenames
 gvcf_list="$6" # list of gVCF filenames
 
-# Name temp directory after job name
-tempdir="${prefix}_tmp"
-
 # Create parent output and temp directories (if needed)
 mkdir -p "$outdir"
-mkdir -p "$tempdir"
 
 # Subdirectory for this job step
 outdir="$outdir/interval_$SLURM_ARRAY_TASK_ID"
@@ -57,17 +53,26 @@ gatk --version || exit 1
 #  input_gvcfs[i]="-V ${input_gvcfs[i]}"
 #done
 
+# Define memory for GATK4
+# Minimum = 50% of memory
+gatk_mem_min="$(( 5 * SLURM_MEM_PER_NODE / 10 ))M"
+# Maximum = 90% of memory
+gatk_mem_max="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+
 # Run GATK4's GenomicsDBImport
 cmd=(
-  gatk 
-  --java-options "-Xms39g -Xmx39g"
+  gatk
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
+  # --java-options "-Xms39g -Xmx39g"
   GenomicsDBImport
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -L "$interval"
-  -V "$gvcf_list"
+  # -V "$gvcf_list"
+  --sample-name-map "$gvcf_list"
   --genomicsdb-workspace-path "$outdir"
-  --tmp-dir "$tempdir"
+  # Give TMPDIR environment variable (Slurm sets this)
+  --tmp-dir "$TMPDIR"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"

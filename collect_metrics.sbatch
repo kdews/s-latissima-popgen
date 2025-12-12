@@ -38,9 +38,20 @@ indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
 # Input BAM file
 uniq_id="${indiv_id}_$genome_base"
 in_bam="$uniq_id.sorted.marked.bam"
-# Verify input file exists
-[[ -f "$indir/$in_bam" ]] \
-  || { echo "Error - missing input file for $indiv_id"; exit 1; }
+# Input BAM index
+in_bam_idx="$in_bam.bai"
+# Verify input BAM & index exist in input directory
+echo "Input alignment BAM: $indir/$in_bam"
+echo "Input alignment BAM index: $indir/$in_bam_idx"
+if [[ -f "$indir/$in_bam" ]] \
+  && [[ -f "$indir/$in_bam_idx" ]]
+then
+  echo "Found input files in input directory: $indir"
+else
+  echo "Error - missing input BAM and/or index for $indiv_id"
+  exit 1
+fi
+echo
 # Output QC files named by program and ID
 # CollectAlignmentSummaryMetrics
 align_metrics="$uniq_id.alignment_summary_metrics.txt"
@@ -56,8 +67,8 @@ wgs_metrics="$uniq_id.collect_wgs_metrics.txt"
 stats_file="$uniq_id.stats"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_bam $TMPDIR/"
-rsync --progress "$indir/$in_bam" "$TMPDIR/"
+echo "rsync --progress $indir/$in_bam $indir/$in_bam_idx $TMPDIR/"
+rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)

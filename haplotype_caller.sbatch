@@ -2,8 +2,7 @@
 #SBATCH -J haplotype_caller
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=10:00:00
-#SBATCH --mem=5g
-#SBTACH --cpus-per-task=12
+#SBATCH --mem=20g
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -37,12 +36,26 @@ fi
 indiv_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$indiv_list")"
 # Input BAM
 in_bam="${indiv_id}_$genome_base.sorted.marked.bam"
+# Input BAM index
+in_bam_idx="$in_bam.bai"
+# Verify input BAM & index exist in input directory
+echo "Input alignment BAM: $indir/$in_bam"
+echo "Input alignment BAM index: $indir/$in_bam_idx"
+if [[ -f "$indir/$in_bam" ]] \
+  && [[ -f "$indir/$in_bam_idx" ]]
+then
+  echo "Found input files in input directory: $indir"
+else
+  echo "Error - missing input BAM and/or index for $indiv_id"
+  exit 1
+fi
+echo
 # Output gVCF file named from individual ID
 out_gvcf="${indiv_id}_$genome_base.g.vcf.gz"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_bam $TMPDIR/"
-rsync --progress "$indir/$in_bam" "$TMPDIR/"
+echo "rsync --progress $indir/$in_bam $indir/$in_bam_idx $TMPDIR/"
+rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
@@ -75,8 +88,8 @@ echo "${cmd[*]}"
 "${cmd[@]}"
 
 # Copy results from temporary storage
-echo "rsync --progress $TMPDIR/$out_gvcf $TMPDIR/$out_gvcf.bai $outdir/"
-rsync --progress "$TMPDIR/$out_gvcf" "$TMPDIR/$out_gvcf.bai" "$outdir/"
+echo "rsync --progress $TMPDIR/$out_gvcf $TMPDIR/$out_gvcf.tbi $outdir/"
+rsync --progress "$TMPDIR/$out_gvcf" "$TMPDIR/$out_gvcf.tbi" "$outdir/"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
@@ -93,4 +106,3 @@ else
   echo "Checkpoint not created."
   exit 1
 fi
-

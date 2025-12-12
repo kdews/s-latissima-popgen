@@ -29,6 +29,12 @@ else
   exit 1
 fi
 
+# Define memory for GATK4
+# Minimum = 50% of memory
+gatk_mem_min="$(( 5 * SLURM_MEM_PER_NODE / 10 ))M"
+# Maximum = 90% of memory
+gatk_mem_max="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+
 # Load GATK4
 module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
@@ -37,6 +43,7 @@ gatk --version || exit 1
 # Run GATK4's SplitIntervals
 cmd=(
   gatk SplitIntervals
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -O "$outdir"
@@ -58,7 +65,8 @@ n_seq_split="$(find "$outdir" -type f -exec grep -v "@" {} + | \
 if [[ "$n_seq" -eq "$n_seq_split" ]]
 then
   # Create list of interval filenames
-  find "$outdir" -type f -name "*.list" > "$intervals_list"
+  find "$outdir" -type f -name "[0-9][0-9][0-9][0-9]-scattered.interval_list" \
+    | sort -h > "$intervals_list"
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"
   exit 0
@@ -67,4 +75,3 @@ else
   echo "Checkpoint not created."
   exit 1
 fi
-

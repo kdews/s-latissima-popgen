@@ -37,20 +37,26 @@ fi
 id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
 # Input BAM file
 in_bam="${id}_${genome_base}${pattern}"
-# Verify input BAM exists in input directory
-if [[ -f "$indir/$in_bam" ]]
+# Input BAM index
+in_bam_idx="$in_bam.bai"
+# Verify input BAM & index exist in input directory
+echo "Input alignment BAM: $indir/$in_bam"
+echo "Input alignment BAM index: $indir/$in_bam_idx"
+if [[ -f "$indir/$in_bam" ]] \
+  && [[ -f "$indir/$in_bam_idx" ]]
 then
-  echo "Validating input alignment file: $indir/$in_bam"
+  echo "Found input files in input directory: $indir"
 else
-  echo "Error - missing input file for $id"
+  echo "Error - missing input BAM and/or index for $id"
   exit 1
 fi
+echo
 # Output QC summary file named from ID
 out_summary="$in_bam.validate.summary"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_bam $TMPDIR/"
-rsync --progress "$indir/$in_bam" "$TMPDIR/"
+echo "rsync --progress $indir/$in_bam $indir/$in_bam_idx $TMPDIR/"
+rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
