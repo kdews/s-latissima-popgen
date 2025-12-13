@@ -56,15 +56,9 @@ miss_check () {
     do
       if [[ ! -f "checkpoints/${prefix}_$i.checkpoint" ]]
       then
-        # Handle trailing comma
-        if [[ "$i" -eq "$array_size" ]]
-        then
-          printf "%s" "$i"
-        else
-          printf "%s," "$i"
-        fi
+        printf "%s," "$i"
       fi
-    done
+    done | sed 's/,$//g' # handle trailing comma
   else
     _log "Error - no checkpoints found for job step: $prefix"
     exit 1

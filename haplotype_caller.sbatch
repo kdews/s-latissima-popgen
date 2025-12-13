@@ -60,8 +60,19 @@ rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
 tmp_mem="$(du -m "$TMPDIR" | awk '{print $1}')"
-mem="$(( SLURM_MEM_PER_NODE - ( tmp_mem * 2 ) ))" # double for output file
-# Minimum = 50% of memory remaining 
+out_file_mem=1000
+mem="$(( SLURM_MEM_PER_NODE - tmp_mem - out_file_mem ))" # reserve 1g for output
+# Report job memory breakdown
+echo
+echo "Memory Allocation Report"
+echo "------------------------"
+echo "Memory used in TMPDIR: ${tmp_mem}M"
+echo "Memory reserved in TMPDIR for output: ${out_file_mem}M"
+echo "RAM remaining: ${mem}M"
+echo
+# Quit if remaining RAM is less than 1g (1000M)
+[[ "$mem" -lt 1000 ]] && { echo "Error - < 1g RAM remaining for job."; exit 1; }
+# Minimum = 50% of memory remaining
 gatk_mem_min="$(( 5 * mem / 10 ))M"
 # Maximum = 90% of memory remaining
 gatk_mem_max="$(( 9 * mem / 10 ))M"

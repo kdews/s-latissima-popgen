@@ -19,7 +19,7 @@ genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # parent output directory containing subdirectories
 intervals_list="$5" # text file listing interval filenames
-gvcf_list="$6" # list of gVCF filenames
+gvcf_map="$6" # sample name map of gVCF filenames
 
 # Create parent output and temp directories (if needed)
 mkdir -p "$outdir"
@@ -38,6 +38,7 @@ fi
 
 # Parse interval
 interval="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$intervals_list")"
+[[ -f "$interval" ]] || { echo "Error - no interval list ($interval)."; exit 1; }
 
 # Load GATK4
 module purge
@@ -69,7 +70,7 @@ cmd=(
   --sequence-dictionary "$genome_dict"
   -L "$interval"
   # -V "$gvcf_list"
-  --sample-name-map "$gvcf_list"
+  --sample-name-map "$gvcf_map"
   --genomicsdb-workspace-path "$outdir"
   # Give TMPDIR environment variable (Slurm sets this)
   --tmp-dir "$TMPDIR"

@@ -426,12 +426,12 @@ PIPELINE_STEPS=(
   "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
   "collect_metrics|--array|$bams_dir|$qc_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
-  "validate_variants|--array|$gvcfs_dir|$qc_dir|$gvcf_map"
+  "validate_variants|--array|$gvcfs_dir|$qc_dir|$indiv_list|.g.vcf.gz"
   "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"
   "genomicsdbimport|--array|$gvcfs_dir|$genomicsdbimport_dir|$intervals_list|$gvcf_map"
   "genotype_gvcfs|--array|$gvcfs_dir|$vcfs_dir|$indiv_list"
   "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$vcf_list"
-  "validate_variants|--array|$vcfs_dir|$qc_dir|$vcf_list"
+  "validate_variants|--array|$vcfs_dir|$qc_dir|$indiv_list|.vcf.gz"
   "merge_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
   "variant_eval|.|$qc_dir"
   "multiqc|$qc_dir|$multiqc_dir|$scripts_dir"
@@ -472,12 +472,18 @@ do
       mapfile -t indivs < "$indiv_list"
       for id in "${indivs[@]}"
       do
-        echo "$id"
-      done
-      find "$gvcfs_dir" -type f -name "*$genome_base.g.vcf.gz" > "$gvcf_map"
+        gvcf="$gvcfs_dir/${id}_$genome_base.g.vcf.gz"
+        if [[ -f "$gvcf" ]]
+        then
+          echo -e "$id\t$gvcf"
+        else
+          _log "Error - gVCF ($gvcf) not found for $id"
+          exit 1
+        fi
+      done > "$gvcf_map"
       if [[ "$(wc -l < "$gvcf_map")" -ne "$dep_size" ]]
       then
-        _log "Error - incorrect # of files in $gvcf_map"
+        _log "Error - incorrect # of gVCFs in $gvcf_map"
         exit 1
       fi
     fi
@@ -488,7 +494,7 @@ do
       find "$vcfs_dir" -type f -name "*$genome_base.vcf.gz" > "$vcf_list"
       if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
       then
-        _log "Error - incorrect # of files in $vcf_list"
+        _log "Error - incorrect # of VCFs in $vcf_list"
         exit 1
       fi
     fi
