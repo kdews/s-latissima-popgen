@@ -2,7 +2,7 @@
 #SBATCH -J genotype_gvcfs
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=04:00:00
-#SBATCH --mem=17g
+#SBATCH --mem=50g
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -20,12 +20,8 @@ indir="$3" # parent input directory containing subdirectories
 outdir="$4" # output directory
 intervals_list="$5" # text file listing interval filenames
 
-# Name temp directory after job name
-tempdir="${prefix}_tmp"
-
-# Create output and temp directories (if needed)
+# Create output directory (if needed)
 mkdir -p "$outdir"
-mkdir -p "$tempdir"
 
 # Subdirectory for this job step
 indir="$indir/interval_$SLURM_ARRAY_TASK_ID"
@@ -49,17 +45,27 @@ module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version || exit 1
 
+# Define memory for GATK4 (leave more for $TMPDIR cache)
+# Minimum = 20% of memory
+gatk_mem_min="$(( 2 * SLURM_MEM_PER_NODE / 10 ))M"
+# Maximum = 30% of memory
+gatk_mem_max="$(( 3 * SLURM_MEM_PER_NODE / 10 ))M"
+
 # Run GATK4's GenotypeGVCFs with GenomicsDBImport option
 cmd=(
   gatk
-  --java-options "-Xms14g -Xmx14g"
+  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   GenotypeGVCFs
+  -ploidy 1
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -L "$interval"
   -V "gendb://$indir"
   -O "$out_vcf"
-  --tmp-dir "$tempdir"
+  # Give TMPDIR environment variable (Slurm sets this)
+  --tmp-dir "$TMPDIR"
+  --genomicsdb-shared-posixfs-optimizations
+  --verbosity DEBUG
 )
 echo "${cmd[*]}"
 "${cmd[@]}"

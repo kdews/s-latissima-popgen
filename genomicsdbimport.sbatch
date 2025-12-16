@@ -3,6 +3,7 @@
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=1-0
 #SBATCH --mem=50g
+#SBATCH --cpus-per-task=9
 
 # Log Slurm job details
 echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
@@ -54,26 +55,29 @@ gatk --version || exit 1
 #  input_gvcfs[i]="-V ${input_gvcfs[i]}"
 #done
 
-# Define memory for GATK4
-# Minimum = 50% of memory
-gatk_mem_min="$(( 5 * SLURM_MEM_PER_NODE / 10 ))M"
-# Maximum = 90% of memory
-gatk_mem_max="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
+# Define memory for GATK4 (leave more for $TMPDIR cache)
+# Minimum = 20% of memory
+gatk_mem_min="$(( 2 * SLURM_MEM_PER_NODE / 10 ))M"
+# Maximum = 30% of memory
+gatk_mem_max="$(( 3 * SLURM_MEM_PER_NODE / 10 ))M"
+# Allocate threads for gVCF reader
+reader_threads="$(( SLURM_CPUS_PER_TASK - 1 ))"
 
 # Run GATK4's GenomicsDBImport
 cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  # --java-options "-Xms39g -Xmx39g"
   GenomicsDBImport
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -L "$interval"
+  # Give TMPDIR environment variable (Slurm sets this)
+  --tmp-dir "$TMPDIR"
   # -V "$gvcf_list"
   --sample-name-map "$gvcf_map"
   --genomicsdb-workspace-path "$outdir"
-  # Give TMPDIR environment variable (Slurm sets this)
-  --tmp-dir "$TMPDIR"
+  --reader-threads "$reader_threads"
+  --genomicsdb-shared-posixfs-optimizations
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
