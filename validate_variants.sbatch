@@ -34,7 +34,13 @@ else
 fi
 
 # Parse ID from index file
-id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
+if [[ "$id_file" == "indexer/intervals_list.txt" ]]
+then
+  # Use Slurm ID for genomic intervals
+  id="interval_${SLURM_ARRAY_TASK_ID}"
+else
+  id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
+fi
 # Input VCF file
 in_vcf="${id}_${genome_base}${pattern}"
 # Input VCF index

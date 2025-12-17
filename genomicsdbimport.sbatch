@@ -25,8 +25,8 @@ gvcf_map="$6" # sample name map of gVCF filenames
 # Create parent output and temp directories (if needed)
 mkdir -p "$outdir"
 
-# Subdirectory for this job step
-outdir="$outdir/interval_$SLURM_ARRAY_TASK_ID"
+# GenomicsDB for this job step
+genomicsDB="$outdir/interval_$SLURM_ARRAY_TASK_ID"
 
 # Source genome config
 if [[ -f "$genome_config" ]]
@@ -46,15 +46,6 @@ module purge
 module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
 gatk --version || exit 1
 
-## Generate array to hold list all g.vcfs
-## and the required "-V" flag before each
-#f=`ls ${indir}/*.g.vcf.gz`
-#input_gvcfs=(${f// / })
-#cnt=${#input_gvcfs[@]}
-#for ((i=0;i<cnt;i++)); do
-#  input_gvcfs[i]="-V ${input_gvcfs[i]}"
-#done
-
 # Define memory for GATK4 (leave more for $TMPDIR cache)
 # Minimum = 20% of memory
 gatk_mem_min="$(( 2 * SLURM_MEM_PER_NODE / 10 ))M"
@@ -73,10 +64,11 @@ cmd=(
   -L "$interval"
   # Give TMPDIR environment variable (Slurm sets this)
   --tmp-dir "$TMPDIR"
-  # -V "$gvcf_list"
   --sample-name-map "$gvcf_map"
-  --genomicsdb-workspace-path "$outdir"
+  --genomicsdb-workspace-path "$genomicsDB"
+  # Increases speed with more input gVCFs
   --reader-threads "$reader_threads"
+  # Optimization for operating in shared storage (reduces I/O intensity)
   --genomicsdb-shared-posixfs-optimizations
 )
 echo "${cmd[*]}"
@@ -87,13 +79,13 @@ echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -d "$outdir" ]]
+if [[ -d "$genomicsDB" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
-  echo "Error - output Genomics Database Workspace ($outdir) not found."
+  echo "Error - output Genomics Database Workspace ($genomicsDB) not found."
   echo "Checkpoint not created."
   exit 1
 fi

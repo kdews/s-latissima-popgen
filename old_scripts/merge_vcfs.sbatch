@@ -1,11 +1,10 @@
 #!/bin/bash
-#SBATCH -J sort_vcf
-#SBATCH -o %x_logs/%x_%a.log
-#SBATCH --time=00:30:00
-#SBATCH --mem=25g
+#SBATCH -J merge_vcfs
+#SBATCH -o %x.log
+#SBATCH --time=4-0
+#SBATCH --mem=100g
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -18,10 +17,7 @@ prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
-intervals_list="$5" # text file listing interval filenames
-
-# Create output directory (if needed)
-mkdir -p "$outdir"
+vcf_list="$5" # list of genotyped VCF files
 
 # Source genome config
 if [[ -f "$genome_config" ]]
@@ -32,19 +28,8 @@ else
   exit 1
 fi
 
-# Parse interval
-interval="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$intervals_list")"
-# Parse input VCF name
-uniq_id="interval_${SLURM_ARRAY_TASK_ID}_$genome_base"
-in_vcf="$indir/$uniq_id.vcf.gz"
-# Output VCF named from parsed input filename
-out_vcf="$outdir/$uniq_id.sorted.vcf.gz"
-# Log job details
-echo
-echo "Genomic interval: $interval"
-echo "Input VCF: $in_vcf"
-echo "Out VCF: $out_vcf"
-echo
+# Output VCF named from genome FASTA
+out_vcf="master_$genome_base.vcf.gz"
 
 # Load GATK4
 module purge
@@ -57,14 +42,14 @@ gatk_mem_min="$(( 5 * SLURM_MEM_PER_NODE / 10 ))M"
 # Maximum = 90% of memory
 gatk_mem_max="$(( 9 * SLURM_MEM_PER_NODE / 10 ))M"
 
-# Run GATK4's SortVcf
+# Run GATK4's MergeVcfs
 cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  SortVcf
-  --MAX_RECORDS_IN_RAM 5000000
+  MergeVcfs
   -R "$genome_local_unzip"
-  -I "$in_vcf"
+  -D "$genome_dict"
+  -I "$vcf_list" # list of VCF filenames (.list file)
   -O "$out_vcf"
   # Give TMPDIR environment variable (Slurm sets this)
   --TMP_DIR "$TMPDIR"
@@ -80,10 +65,10 @@ mkdir -p checkpoints
 if [[ -f "$out_vcf" ]]
 then
   echo "Creating checkpoint."
-  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  touch "checkpoints/$prefix.checkpoint"
   exit 0
 else
-  echo "Error - sorted VCF ($out_vcf) not found for $in_vcf"
+  echo "Error - VCF file ($out_vcf) not found."
   echo "Checkpoint not created."
   exit 1
 fi

@@ -1,8 +1,9 @@
 #!/bin/bash
-#SBATCH -J merge_vcfs
+#SBATCH -J bcftools_concat
 #SBATCH -o %x.log
 #SBATCH --time=4-0
 #SBATCH --mem=100g
+#SBATCH --cpus-per-task=11
 
 # Log Slurm job details
 echo "Partition: $SLURM_JOB_PARTITION"
@@ -19,12 +20,6 @@ indir="$3" # input directory
 outdir="$4" # output directory
 vcf_list="$5" # list of genotyped VCF files
 
-# Name temp directory after job name
-tempdir="${prefix}_tmp"
-
-# Create temp directory (if needed)
-mkdir -p "$tempdir"
-
 # Source genome config
 if [[ -f "$genome_config" ]]
 then
@@ -35,22 +30,32 @@ else
 fi
 
 # Output VCF named from genome FASTA
-out_vcf="master_$genome_base.vcf.gz"
+out_vcf="$outdir/master_$genome_base.vcf.gz"
 
-# Load GATK4
-module purge
-module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
-gatk --version || exit 1
+# Load conda
+cond=~/.conda_for_sbatch.sh
+if [[ -f "$cond" ]]
+then
+  source "$cond"
+else
+  echo "Error on source of $cond"
+  exit 1
+fi
 
-# Run GATK4's MergeVcfs
+# Load bcftools
+conda activate bcftools
+bcftools --version || exit 1
+
+# Define threads for bcftools
+n_thread="$(( SLURM_CPUS_PER_TASK - 1 ))"
+
+# Run bcftools concat
 cmd=(
-  gatk MergeVcfs
-  --java-options "-Xms85g -Xmx85g"
-  -R "$genome_local_unzip"
-  -D "$genome_dict"
-  -I "$vcf_list"
-  -O "$out_vcf"
-  --TMP_DIR "$tempdir"
+  bcftools concat
+  -f "$vcf_list" # list of VCF filenames
+  --threads "$n_thread"
+  -W "tbi" # create TBI index of compressed output VCF
+  -o "$out_vcf"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"

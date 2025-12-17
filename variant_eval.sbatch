@@ -1,10 +1,11 @@
 #!/bin/bash
 #SBATCH -J variant_eval
-#SBATCH -o %x.log
+#SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
 #SBATCH --mem=100g
 
 # Log Slurm job details
+echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -31,12 +32,14 @@ else
 fi
 
 # Input VCF file
-in_vcf="master_$genome_base.vcf.gz"
+in_vcf="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$vcf_list")"
+in_vcf_basename="$(basename "$in_vcf")"
+in_vcf_base="${in_vcf_basename%%.*}"
 # Verify input file exists
 [[ -f "$in_vcf" ]] \
   || { echo "Error - missing input VCF file ($in_vcf)"; exit 1; }
 # Output evaluation QC file
-eval_file="master_$genome_base.variant_eval.txt"
+eval_file="$outdir/$in_vcf_base.variant_eval.txt"
 
 # Define memory for GATK4
 # Minimum = 50% of memory 
@@ -58,7 +61,7 @@ cmd=(
   --sequence-dictionary "$genome_dict"
   --tmp-dir "$TMPDIR"
   --eval "$in_vcf"
-  -O "$outdir/$eval_file"
+  -O "$eval_file"
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -68,10 +71,10 @@ echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$eval_file" ]]
+if [[ -f "$eval_file" ]]
 then
   echo "Creating checkpoint."
-  touch "checkpoints/$prefix.checkpoint"
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
   echo "Error - missing variant eval file ($eval_file) for VCF ($in_vcf)."

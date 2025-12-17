@@ -429,11 +429,13 @@ PIPELINE_STEPS=(
   "validate_variants|--array|$gvcfs_dir|$qc_dir|$indiv_list|.g.vcf.gz"
   "split_intervals|$split_intervals_dir|$split_intervals_dir|$intervals_list|$scatter"
   "genomicsdbimport|--array|$gvcfs_dir|$genomicsdbimport_dir|$intervals_list|$gvcf_map"
-  "genotype_gvcfs|--array|$gvcfs_dir|$vcfs_dir|$indiv_list"
-  "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$vcf_list"
-  "validate_variants|--array|$vcfs_dir|$qc_dir|$indiv_list|.vcf.gz"
-  "merge_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
-  "variant_eval|.|$qc_dir"
+  "genotype_gvcfs|--array|$genomicsdbimport_dir|$vcfs_dir|$intervals_list"
+  "validate_variants|--array|$vcfs_dir|$qc_dir|$intervals_list|.vcf.gz"
+  "variant_eval|--array|$vcfs_dir|$qc_dir|$vcf_list"
+  "bcftools_stats|--array|$vcfs_dir|$qc_dir|$vcf_list"
+  # "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$intervals_list"
+  # "gather_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
+  "bcftools_concat|$vcfs_dir|$vcfs_dir|$vcf_list"
   "multiqc|$qc_dir|$multiqc_dir|$scripts_dir"
 )
 
@@ -487,22 +489,23 @@ do
         exit 1
       fi
     fi
-    # After genotype_gvcfs step: create VCF list
+    # After genotype_gvcfs step: create VCF filename list
     if [[ "$dep_prefix" = "genotype_gvcfs" ]]
     then
-      _log "Creating list of VCF files: $vcf_list"
-      find "$vcfs_dir" -type f -name "*$genome_base.vcf.gz" > "$vcf_list"
-      if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
-      then
-        _log "Error - incorrect # of VCFs in $vcf_list"
-        exit 1
-      fi
-    fi
-    # After sort_vcf step: overwrite VCF list with sorted VCF filenames
-    if [[ "$dep_prefix" = "sort_vcf" ]]
-    then
-      _log "Overwritting VCF list: $vcf_list"
-      find "$vcfs_dir" -type f -name "*$genome_base.sorted.vcf.gz" > "$vcf_list"
+      _log "Creating VCF list: $vcf_list"
+      mapfile -t ints < "$intervals_list"
+      for i in "${!ints[@]}"
+      do
+        n="$(( i + 1 ))"
+        vcf="$vcfs_dir/interval_${n}_$genome_base.vcf.gz"
+        if [[ -f "$vcf" ]]
+        then
+          echo "$vcf"
+        else
+          _log "Error - VCF ($vcf) not found."
+          exit 1
+        fi > "$vcf_list"
+      done
       if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
       then
         _log "Error - incorrect # of files in $vcf_list"

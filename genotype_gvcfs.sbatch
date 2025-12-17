@@ -24,7 +24,9 @@ intervals_list="$5" # text file listing interval filenames
 mkdir -p "$outdir"
 
 # Subdirectory for this job step
-indir="$indir/interval_$SLURM_ARRAY_TASK_ID"
+genomicsDB="$indir/interval_$SLURM_ARRAY_TASK_ID"
+# Verify input GenomicsDB exists
+[[ -d "$genomicsDB" ]] || { echo "Error - no GenomicsDB: $genomicsDB"; exit 1; }
 
 # Source genome config
 if [[ -f "$genome_config" ]]
@@ -60,7 +62,7 @@ cmd=(
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -L "$interval"
-  -V "gendb://$indir"
+  -V "gendb://$genomicsDB"
   -O "$out_vcf"
   # Give TMPDIR environment variable (Slurm sets this)
   --tmp-dir "$TMPDIR"

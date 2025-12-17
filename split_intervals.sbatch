@@ -48,7 +48,9 @@ cmd=(
   --sequence-dictionary "$genome_dict"
   -O "$outdir"
   --scatter-count "$scatter"
-  --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION
+  # Allow subdivision of intervals (contigs/scaffolds) to chunk genome evenly
+  --subdivision-mode INTERVAL_SUBDIVISION
+  # --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION
 )
 echo "${cmd[*]}"
 "${cmd[@]}"
@@ -58,13 +60,17 @@ echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
+# Extract genome sequence IDs from FASTA index
 mapfile -t seqids < <(cut -f1 "$genome_idx")
-n_seq="$(wc -l < "$genome_idx")"
-n_seq_split="$(find "$outdir" -type f -exec grep -v "@" {} + | \
-  grep -E -c "$(IFS='|'; echo "${seqids[*]}")")"
+n_seq="${#seqids[@]}" # count of genome sequence IDs
+ptn="$(IFS='|'; echo "${seqids[*]}")" # search pattern for grep (all seq IDs)
+# Extract sequence IDs from split interval lists
+seq_split="$(find "$outdir" -type f -exec grep -hv "@" {} + | cut -f1 | sort -u)"
+# Count matches in interval lists to genome FASTA index IDs
+n_seq_split="$(echo "$seq_split" | grep -E -c "$ptn")"
 if [[ "$n_seq" -eq "$n_seq_split" ]]
 then
-  # Create list of interval filenames
+  # Create list of interval filenames in output directory
   find "$outdir" -type f -name "[0-9][0-9][0-9][0-9]-scattered.interval_list" \
     | sort -h > "$intervals_list"
   echo "Creating checkpoint."
