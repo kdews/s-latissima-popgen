@@ -5,7 +5,10 @@
 #SBATCH --mem=20g
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -85,7 +88,7 @@ cmd=(
   -O "$TMPDIR/$out_summary"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Copy result from temporary storage
 echo "rsync --progress $TMPDIR/$out_summary $outdir/"
@@ -96,7 +99,7 @@ echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$out_summary" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$outdir/$out_summary" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"

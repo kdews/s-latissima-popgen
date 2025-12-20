@@ -6,6 +6,10 @@
 #SBATCH --cpus-per-task=12
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -69,14 +73,15 @@ cmd=(
   "$ht2_idx"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if (( $(find "$outdir" -type f -name "$genome_base.*.ht2" | wc -l) > 0 ))
+if [[ "$check" == "pass" ]] \
+  && (( $(find "$outdir" -type f -name "$genome_base.*.ht2" | wc -l) > 0 ))
 then  
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"

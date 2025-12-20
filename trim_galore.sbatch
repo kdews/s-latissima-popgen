@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=15
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -71,14 +74,14 @@ cmd=(
   "$reads2"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$trim1" ]] && [[ -f "$trim2" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$trim1" ]] && [[ -f "$trim2" ]]
 then
   echo "Trimming and FastQC of trimmed reads completed for sample ID: $sample_id"
   if [[ -f "$report1" ]] && [[ -f "$report2" ]]

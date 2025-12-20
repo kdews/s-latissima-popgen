@@ -1,11 +1,15 @@
 #!/bin/bash
 #SBATCH -J bcftools_stats
-#SBATCH -o %x_logs/%x_%a.log
+#SBATCH -o %x.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=100g
+#SBATCH --mem=10g
+#SBATCH --cpus-per-task=12
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -31,13 +35,11 @@ else
   exit 1
 fi
 
-# Parse input VCF filename
-in_vcf="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$vcf_list")"
-in_vcf_basename="$(basename "$in_vcf")"
-in_vcf_base="${in_vcf_basename%%.*}"
+# Input VCF filename
+in_vcf_base="master_$genome_base.vcf.gz"
+in_vcf="$indir/$in_vcf_base.vcf.gz"
 # Verify input file exists
-[[ -f "$in_vcf" ]] \
-  || { echo "Error - missing input VCF file ($in_vcf)"; exit 1; }
+[[ -f "$in_vcf" ]] || { echo "Error - missing input VCF ($in_vcf)"; exit 1; }
 # Output evaluation QC file (name from input filename)
 stats_file="$outdir/$in_vcf_base.bcftools.stats"
 
@@ -58,21 +60,23 @@ bcftools --version || exit 1
 # Run bcftools stats
 cmd=(
   bcftools stats
-  -s
+  --threads "$SLURM_CPUS_PER_TASK"
+  -s -
+  -F "$genome_local_unzip"
   "$in_vcf"
 )
 echo "${cmd[*]} > $stats_file"
-"${cmd[@]}" > "$stats_file"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$stats_file" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$stats_file" ]]
 then
   echo "Creating checkpoint."
-  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  touch "checkpoints/$prefix.checkpoint"
   exit 0
 else
   echo "Error - missing variant eval file ($stats_file) for VCF ($in_vcf)."

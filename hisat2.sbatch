@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=16
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -138,80 +141,87 @@ samtools_cmd=(
   -o "$TMPDIR/$tmp1_bam"
 )
 echo "${hisat2_cmd[*]} | ${samtools_cmd[*]}"
-"${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
+set -o pipefail
+if "${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
+then
+  # Define memory for GATK4 FixMateInformation
+  # Allocate from remaining memory (/tmp stores in RAM)
+  file_mem="$(du -m "$TMPDIR/$tmp1_bam" | awk '{print $1}')"
+  mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
+  # Minimum = 50% of memory remaining 
+  gatk_mem_min="$(( 5 * mem / 10 ))M"
+  # Maximum = 90% of memory remaining
+  gatk_mem_max="$(( 9 * mem / 10 ))M"
 
-# Define memory for GATK4 FixMateInformation
-# Allocate from remaining memory (/tmp stores in RAM)
-file_mem="$(du -m "$TMPDIR/$tmp1_bam" | awk '{print $1}')"
-mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
-# Minimum = 50% of memory remaining 
-gatk_mem_min="$(( 5 * mem / 10 ))M"
-# Maximum = 90% of memory remaining
-gatk_mem_max="$(( 9 * mem / 10 ))M"
+  # Load GATK4
+  module purge
+  module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
+  gatk --version || exit 1
 
-# Load GATK4
-module purge
-module load gcc/13.3.0 gatk/4.5.0.0 python/3.13.2 openjdk/21.0.0_35
-gatk --version || exit 1
+  # Fix read mate pairs with GATK4
+  # HISAT2 incorrectly doesn't set 0x20 for unmapped reads with reverse-mapped mate
+  fixmate_cmd=(
+    gatk
+    --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
+    FixMateInformation
+    --MAX_RECORDS_IN_RAM 5000000
+    -R "$genome_local_unzip"
+    --TMP_DIR "$TMPDIR"
+    -I "$TMPDIR/$tmp1_bam"
+    -O "$TMPDIR/$tmp2_bam"
+  )
+  echo "${fixmate_cmd[*]}"
+  if "${fixmate_cmd[@]}"
+  then
+    # Define memory for GATK4 SetNmMdAndUqTags
+    # Allocate from remaining memory (/tmp stores in RAM)
+    file_mem2="$(du -m "$TMPDIR/$tmp2_bam" | awk '{print $1}')"
+    mem="$(( SLURM_MEM_PER_NODE - file_mem - file_mem2 ))"
+    # Minimum = 50% of memory remaining 
+    gatk_mem_min="$(( 5 * mem / 10 ))M"
+    # Maximum = 90% of memory remaining
+    gatk_mem_max="$(( 9 * mem / 10 ))M"
 
-# Fix read mate pairs with GATK4
-# HISAT2 incorrectly doesn't set 0x20 for unmapped reads with reverse-mapped mate
-fixmate_cmd=(
-  gatk
-  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  FixMateInformation
-  --MAX_RECORDS_IN_RAM 5000000
-  -R "$genome_local_unzip"
-  --TMP_DIR "$TMPDIR"
-  -I "$TMPDIR/$tmp1_bam"
-  -O "$TMPDIR/$tmp2_bam"
-)
-echo "${fixmate_cmd[*]}"
-"${fixmate_cmd[@]}"
-
-# Define memory for GATK4 SetNmMdAndUqTags
-# Allocate from remaining memory (/tmp stores in RAM)
-file_mem2="$(du -m "$TMPDIR/$tmp2_bam" | awk '{print $1}')"
-mem="$(( SLURM_MEM_PER_NODE - file_mem - file_mem2 ))"
-# Minimum = 50% of memory remaining 
-gatk_mem_min="$(( 5 * mem / 10 ))M"
-# Maximum = 90% of memory remaining
-gatk_mem_max="$(( 9 * mem / 10 ))M"
-
-# Recalculate NM tags with GATK4
-set_nm_cmd=(
-  gatk
-  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  SetNmMdAndUqTags
-  --MAX_RECORDS_IN_RAM 5000000
-  -R "$genome_local_unzip"
-  --TMP_DIR "$TMPDIR"
-  -I "$TMPDIR/$tmp2_bam"
-  -O "$TMPDIR/$out_bam"
-)
-echo "${set_nm_cmd[*]}"
-"${set_nm_cmd[@]}"
-
-# Index final coordinate-sorted BAM
-samtools_cmd_2=(
-  samtools index
-  -@ "$SLURM_CPUS_PER_TASK"
-  --bai
-  "$TMPDIR/$out_bam"
-)
-echo "${samtools_cmd_2[*]}"
-"${samtools_cmd_2[@]}"
-
-# Copy only final BAM to working directory
-echo "cp $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
-cp "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
+    # Recalculate NM tags with GATK4
+    set_nm_cmd=(
+      gatk
+      --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
+      SetNmMdAndUqTags
+      --MAX_RECORDS_IN_RAM 5000000
+      -R "$genome_local_unzip"
+      --TMP_DIR "$TMPDIR"
+      -I "$TMPDIR/$tmp2_bam"
+      -O "$TMPDIR/$out_bam"
+    )
+    echo "${set_nm_cmd[*]}"
+    if "${set_nm_cmd[@]}"
+    then
+      # Index final coordinate-sorted BAM
+      samtools_cmd_2=(
+        samtools index
+        -@ "$SLURM_CPUS_PER_TASK"
+        --bai
+        "$TMPDIR/$out_bam"
+      )
+      echo "${samtools_cmd_2[*]}"
+      if "${samtools_cmd_2[@]}"
+      then
+        check="pass"
+        # Copy only final BAM to working directory
+        echo "rsync --progress $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
+        rsync --progress "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
+      fi
+    fi
+  fi
+fi
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$out_bam" ]] \
+if [[ "$check" == "pass" ]] \
+  && [[ -f "$outdir/$out_bam" ]] \
   && [[ -f "$outdir/$out_bam.bai" ]] \
   && [[ -f "$out_summary" ]]
 then

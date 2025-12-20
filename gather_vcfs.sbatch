@@ -1,10 +1,14 @@
 #!/bin/bash
 #SBATCH -J gather_vcfs
 #SBATCH -o %x.log
-#SBATCH --time=4-0
-#SBATCH --mem=100g
+#SBATCH --time=1-0
+#SBATCH --mem=30g
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -29,7 +33,7 @@ else
 fi
 
 # Output VCF named from genome FASTA
-out_vcf="master_$genome_base.vcf.gz"
+out_vcf="$outdir/master_$genome_base.vcf.gz"
 
 # Load GATK4
 module purge
@@ -56,14 +60,14 @@ cmd=(
   --TMP_DIR "$TMPDIR"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$out_vcf" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$out_vcf" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"

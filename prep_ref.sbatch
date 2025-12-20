@@ -5,6 +5,10 @@
 #SBATCH --mem=500m
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -62,7 +66,6 @@ else
   )
   echo "${cmd[*]}"
   "${cmd[@]}"
-  unset cmd
   module purge
 fi
 
@@ -84,12 +87,12 @@ else
   conda activate samtools
   samtools --version || exit 1
   # Build samtools FASTA index from uncompressed genome FASTA
-  cmd=(
+  cmd2=(
     samtools faidx
     "$genome_local_unzip"
   )
-  echo "${cmd[*]}"
-  "${cmd[@]}"
+  echo "${cmd2[*]}"
+  "${cmd2[@]}"
 fi
 
 # Mark time at completion

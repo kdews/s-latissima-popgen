@@ -1,11 +1,14 @@
 #!/bin/bash
 #SBATCH -J variant_eval
-#SBATCH -o %x_logs/%x_%a.log
+#SBATCH -o %x.log
 #SBATCH --time=05:00:00
-#SBATCH --mem=100g
+#SBATCH --mem=5g
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -32,12 +35,10 @@ else
 fi
 
 # Input VCF file
-in_vcf="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$vcf_list")"
-in_vcf_basename="$(basename "$in_vcf")"
-in_vcf_base="${in_vcf_basename%%.*}"
+in_vcf_base="master_$genome_base.vcf.gz"
+in_vcf="$indir/$in_vcf_base.vcf.gz"
 # Verify input file exists
-[[ -f "$in_vcf" ]] \
-  || { echo "Error - missing input VCF file ($in_vcf)"; exit 1; }
+[[ -f "$in_vcf" ]] || { echo "Error - missing input VCF ($in_vcf)"; exit 1; }
 # Output evaluation QC file
 eval_file="$outdir/$in_vcf_base.variant_eval.txt"
 
@@ -57,6 +58,7 @@ cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   VariantEval
+  --sample-ploidy 1
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   --tmp-dir "$TMPDIR"
@@ -64,17 +66,17 @@ cmd=(
   -O "$eval_file"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$eval_file" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$eval_file" ]]
 then
   echo "Creating checkpoint."
-  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  touch "checkpoints/$prefix.checkpoint"
   exit 0
 else
   echo "Error - missing variant eval file ($eval_file) for VCF ($in_vcf)."

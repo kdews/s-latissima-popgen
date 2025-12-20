@@ -5,7 +5,10 @@
 #SBATCH --mem=8g
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -38,6 +41,9 @@ if [[ "$id_file" == "indexer/intervals_list.txt" ]]
 then
   # Use Slurm ID for genomic intervals
   id="interval_${SLURM_ARRAY_TASK_ID}"
+elif [[ "$id_file" == "master" ]]
+then
+  id="$id_file"
 else
   id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$id_file")"
 fi
@@ -48,8 +54,7 @@ in_vcf_idx="${id}_${genome_base}${pattern}.tbi"
 # Verify input BAM & index exist in input directory
 echo "Input alignment VCF: $indir/$in_vcf"
 echo "Input alignment VCF index: $indir/$in_vcf_idx"
-if [[ -f "$indir/$in_vcf" ]] \
-  && [[ -f "$indir/$in_vcf_idx" ]]
+if [[ -f "$indir/$in_vcf" ]] && [[ -f "$indir/$in_vcf_idx" ]]
 then
   echo "Found input files in input directory: $indir"
 else
@@ -57,8 +62,6 @@ else
   exit 1
 fi
 echo
-# Output QC summary file named from ID
-out_summary="$in_vcf.validate.summary"
 
 # Use temporary storage for computations
 echo "rsync --progress $indir/$in_vcf $indir/$in_vcf_idx $TMPDIR/"
@@ -89,33 +92,31 @@ gatk --version || exit 1
 
 # Run GATK4's ValidateVariants
 cmd=(
-  gatk ValidateVariants
+  gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  "$filetype_flag"
-  --validation-type-to-exclude ALLELES
+  ValidateVariants
+  # --validation-type-to-exclude ALLELES
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -V "$TMPDIR/$in_vcf"
 )
-echo "${cmd[*]} > $TMPDIR/$out_summary 2>&1"
-"${cmd[@]}" > "$TMPDIR/$out_summary" 2>&1
+# Add filetype flag (if needed)
+[[ -n "$filetype_flag" ]] && cmd+=("$filetype_flag")
+echo "${cmd[*]}"
 
-# Copy result from temporary storage
-echo "rsync --progress $TMPDIR/$out_summary $outdir/"
-rsync --progress "$TMPDIR/$out_summary" "$outdir/"
-
-# Mark time at completion
-echo; date +"$date_fmt"; echo
-
-# Checkpoint
+# Checkpoint created if command has 0 exit code
 mkdir -p checkpoints
-if [[ -f "$outdir/$out_summary" ]]
+if "${cmd[@]}"
 then
+  # Mark time at completion
+  echo; date +"$date_fmt"; echo
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
-  echo "Error - ValidateVariant summary for input file ($in_vcf) not found."
+  # Mark time at completion
+  echo; date +"$date_fmt"; echo
+  echo "Error - VCF ($in_vcf) did not pass validation. Check logs."
   echo "Checkpoint not created."
   exit 1
 fi

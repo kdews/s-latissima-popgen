@@ -1,11 +1,15 @@
 #!/bin/bash
 #SBATCH -J bcftools_concat
 #SBATCH -o %x.log
-#SBATCH --time=4-0
-#SBATCH --mem=100g
+#SBATCH --time=05:00:00
+#SBATCH --mem=15g
 #SBATCH --cpus-per-task=11
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -52,26 +56,38 @@ n_thread="$(( SLURM_CPUS_PER_TASK - 1 ))"
 # Run bcftools concat
 cmd=(
   bcftools concat
-  -f "$vcf_list" # list of VCF filenames
   --threads "$n_thread"
-  -W "tbi" # create TBI index of compressed output VCF
+  -f "$vcf_list" # list of input VCF file paths
+  -O z
   -o "$out_vcf"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+if "${cmd[@]}"
+then
+  # Index full VCF file
+  cmd2=(
+    bcftools index
+    --threads "$n_thread"
+    --tbi
+    "$out_vcf"
+  )
+  echo
+  echo "${cmd2[*]}"
+  "${cmd[@]}" && check="pass"
+fi
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$out_vcf" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$out_vcf" ]] && [[ -f "$out_vcf.tbi" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"
   exit 0
 else
-  echo "Error - VCF file ($out_vcf) not found."
+  echo "Error - VCF file ($out_vcf) or index ($out_vcf.tbi) not found."
   echo "Checkpoint not created."
   exit 1
 fi

@@ -5,6 +5,10 @@
 #SBATCH --mem=15g
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -61,14 +65,14 @@ cmd=(
   "$indir"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoints
 mkdir -p checkpoints
-if [[ -f "$out_report" ]] && [[ -d "$outdir" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$out_report" ]] && [[ -d "$outdir" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"

@@ -431,11 +431,12 @@ PIPELINE_STEPS=(
   "genomicsdbimport|--array|$gvcfs_dir|$genomicsdbimport_dir|$intervals_list|$gvcf_map"
   "genotype_gvcfs|--array|$genomicsdbimport_dir|$vcfs_dir|$intervals_list"
   "validate_variants|--array|$vcfs_dir|$qc_dir|$intervals_list|.vcf.gz"
-  "variant_eval|--array|$vcfs_dir|$qc_dir|$vcf_list"
-  "bcftools_stats|--array|$vcfs_dir|$qc_dir|$vcf_list"
   # "sort_vcf|--array|$vcfs_dir|$vcfs_dir|$intervals_list"
   # "gather_vcfs|$vcfs_dir|$vcfs_dir|$vcf_list"
   "bcftools_concat|$vcfs_dir|$vcfs_dir|$vcf_list"
+  "validate_variants|$vcfs_dir|$qc_dir|master|.vcf.gz"
+  "variant_eval|$vcfs_dir|$qc_dir"
+  "bcftools_stats|$vcfs_dir|$qc_dir"
   "multiqc|$qc_dir|$multiqc_dir|$scripts_dir"
 )
 
@@ -504,8 +505,8 @@ do
         else
           _log "Error - VCF ($vcf) not found."
           exit 1
-        fi > "$vcf_list"
-      done
+        fi
+      done > "$vcf_list"
       if [[ "$(wc -l < "$vcf_list")" -ne "$dep_size" ]]
       then
         _log "Error - incorrect # of files in $vcf_list"
@@ -536,6 +537,7 @@ do
     if [[ -f "$index_file" ]]
     then
       array_size="$(wc -l < "$index_file")"
+      # Remove array flag and update $prefix with count
       args=( "$prefix" "${args[@]:2}" )
     else
       _log "Error - index file ($index_file) not found."
@@ -544,6 +546,8 @@ do
   else
     # Set array size
     array_size=1
+    # Update $prefix with count
+    args=( "$prefix" "${args[@]:1}" )
   fi
   _log "Array size set to: $array_size"
 

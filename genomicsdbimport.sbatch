@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=9
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -49,8 +52,8 @@ gatk --version || exit 1
 # Define memory for GATK4 (leave more for $TMPDIR cache)
 # Minimum = 20% of memory
 gatk_mem_min="$(( 2 * SLURM_MEM_PER_NODE / 10 ))M"
-# Maximum = 30% of memory
-gatk_mem_max="$(( 3 * SLURM_MEM_PER_NODE / 10 ))M"
+# Maximum = 50% of memory
+gatk_mem_max="$(( 5 * SLURM_MEM_PER_NODE / 10 ))M"
 # Allocate threads for gVCF reader
 reader_threads="$(( SLURM_CPUS_PER_TASK - 1 ))"
 
@@ -72,14 +75,14 @@ cmd=(
   --genomicsdb-shared-posixfs-optimizations
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -d "$genomicsDB" ]]
+if [[ "$check" == "pass" ]] && [[ -d "$genomicsDB" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"

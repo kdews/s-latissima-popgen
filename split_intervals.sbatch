@@ -5,6 +5,10 @@
 #SBATCH --mem=1g
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -53,7 +57,7 @@ cmd=(
   # --subdivision-mode BALANCING_WITHOUT_INTERVAL_SUBDIVISION
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
@@ -68,7 +72,7 @@ ptn="$(IFS='|'; echo "${seqids[*]}")" # search pattern for grep (all seq IDs)
 seq_split="$(find "$outdir" -type f -exec grep -hv "@" {} + | cut -f1 | sort -u)"
 # Count matches in interval lists to genome FASTA index IDs
 n_seq_split="$(echo "$seq_split" | grep -E -c "$ptn")"
-if [[ "$n_seq" -eq "$n_seq_split" ]]
+if [[ "$check" == "pass" ]] && [[ "$n_seq" -eq "$n_seq_split" ]]
 then
   # Create list of interval filenames in output directory
   find "$outdir" -type f -name "[0-9][0-9][0-9][0-9]-scattered.interval_list" \

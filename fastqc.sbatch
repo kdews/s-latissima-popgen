@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=2
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -58,17 +61,18 @@ cmd=(
   "$reads2"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/${sample_id}_R1_fastqc.zip" ]] && \
-  [[ -f "$outdir/${sample_id}_R2_fastqc.zip" ]] && \
-  [[ -f "$outdir/${sample_id}_R1_fastqc.html" ]] && \
-  [[ -f "$outdir/${sample_id}_R2_fastqc.html" ]]
+if [[ "$check" == "pass" ]] \
+  && [[ -f "$outdir/${sample_id}_R1_fastqc.zip" ]] \
+  && [[ -f "$outdir/${sample_id}_R2_fastqc.zip" ]] \
+  && [[ -f "$outdir/${sample_id}_R1_fastqc.html" ]] \
+  && [[ -f "$outdir/${sample_id}_R2_fastqc.html" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"

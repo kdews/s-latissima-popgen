@@ -6,6 +6,10 @@
 #SBATCH --cpus-per-task=20
 
 # Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -21,6 +25,10 @@ outdir="$4" # output directory
 samples_list="$5" # file to save parsed sample IDs
 scripts_dir="$6" # optional: directory containing scripts (MUST end in '/')
 
+# Create new output directory (if needed)
+echo "Output directory: ${outdir}"
+mkdir -p "$outdir"
+
 # Output
 og_file="$outdir/original_filenames.txt" # list of original FASTQ paths
 rsync_list="$outdir/rsync_list.txt" # list of rsync commands
@@ -35,45 +43,45 @@ cmd=(
   -exec realpath -e {} \;
 )
 echo "${cmd[*]} > $og_file"
-"${cmd[@]}" > "$og_file"
-unset cmd
+if "${cmd[@]}" > "$og_file"
+then
+  # Run rename Python script
+  cmd2=(
+    python
+    "${scripts_dir}rename_MO_KD.py"
+    "$og_file"
+    "$outdir"
+    "$rsync_list"
+  )
+  echo "${cmd2[*]}"
+  if "${cmd2[@]}"
+  then
+    # Load GNU parallel
+    module purge
+    module load ver/2506 gcc/14.3.0 parallel
+    parallel --version || exit 1
 
-# Create new output directory (if needed)
-echo "Output directory: ${outdir}"
-mkdir -p "$outdir"
-
-# Run rename Python script
-cmd=(
-  python
-  "${scripts_dir}rename_MO_KD.py"
-  "$og_file"
-  "$outdir"
-  "$rsync_list"
-)
-echo "${cmd[*]}"
-"${cmd[@]}"
-unset cmd
-
-# Load GNU parallel
-module purge
-module load ver/2506 gcc/14.3.0 parallel
-parallel --version || exit 1
-
-# Run rsync commands in parallel
-parallel -j "$SLURM_CPUS_PER_TASK" < "$rsync_list"
-
-# Make $samples_list from FASTQs in $outdir
-echo "Creating $samples_list"
-find "$outdir" -type f -name "*.fastq.gz" \
-  | sed -E 's|.*/||; s/_R[12]\.fastq.*//' \
-  | sort -u > "$samples_list"
+    # Run rsync commands in parallel
+    if parallel -j "$SLURM_CPUS_PER_TASK" < "$rsync_list"
+    then
+      # Make $samples_list from FASTQs in $outdir
+      echo "Creating $samples_list"
+      if find "$outdir" -type f -name "*.fastq.gz" \
+        | sed -E 's|.*/||; s/_R[12]\.fastq.*//' \
+        | sort -u > "$samples_list"
+      then
+        check="pass"
+      fi
+    fi
+  fi
+fi
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$samples_list" ]]
+if [[ "$check" == "pass" ]] && [[ -f "$samples_list" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"

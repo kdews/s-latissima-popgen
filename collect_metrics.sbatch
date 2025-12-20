@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=12
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -102,65 +105,71 @@ mult_cmd=(
   -O "$TMPDIR/$uniq_id" # output prefix
 )
 echo "${mult_cmd[*]}"
-"${mult_cmd[@]}"
-
-# Run GATK4's CollectWgsMetrics
-wgs_cmd=(
-  gatk
-  --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
-  CollectWgsMetrics
-  --USE_FAST_ALGORITHM
-  --MAX_RECORDS_IN_RAM 5000000
-  --READ_LENGTH 151 # give longest possible read length for fast algorithm
-  -R "$genome_local_unzip"
-  --TMP_DIR "$TMPDIR"
-  -I "$TMPDIR/$in_bam"
-  -O "$TMPDIR/$wgs_metrics"
-)
-echo "${wgs_cmd[*]}"
-"${wgs_cmd[@]}"
-
-# Unload GATK4 env
-module purge
-
-# Load conda
-cond=~/.conda_for_sbatch.sh
-if [[ -f "$cond" ]]
+if "${mult_cmd[@]}"
 then
-  source "$cond"
-else
-  echo "Error on source of $cond"
-  exit 1
+  # Run GATK4's CollectWgsMetrics
+  wgs_cmd=(
+    gatk
+    --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
+    CollectWgsMetrics
+    --USE_FAST_ALGORITHM
+    --MAX_RECORDS_IN_RAM 5000000
+    --READ_LENGTH 151 # give longest possible read length for fast algorithm
+    -R "$genome_local_unzip"
+    --TMP_DIR "$TMPDIR"
+    -I "$TMPDIR/$in_bam"
+    -O "$TMPDIR/$wgs_metrics"
+  )
+  echo "${wgs_cmd[*]}"
+  if "${wgs_cmd[@]}"
+  then
+    # Unload GATK4 env
+    module purge
+
+    # Load conda
+    cond=~/.conda_for_sbatch.sh
+    if [[ -f "$cond" ]]
+    then
+      source "$cond"
+    else
+      echo "Error on source of $cond"
+      exit 1
+    fi
+
+    # Load samtools
+    conda activate samtools
+    samtools --version || exit 1
+
+    # Run samtools stats
+    cmd=(
+      samtools stats
+      -@ "$SLURM_CPUS_PER_TASK"
+      -r "$genome_local_unzip"
+      "$TMPDIR/$in_bam"
+    )
+    echo "${cmd[*]} > $TMPDIR/$stats_file"
+    if "${cmd[@]}" > "$TMPDIR/$stats_file"
+    then
+      check="pass"
+
+      # Copy all resulting .txt, .stats, & .pdf files from temporary storage
+      echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.txt $outdir/"
+      rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.txt "$outdir/"
+      echo "rsync --progress $TMPDIR/$stats_file $outdir/"
+      rsync --progress "$TMPDIR/$stats_file" "$outdir/"
+      echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.pdf $outdir/"
+      rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.pdf "$outdir/"
+    fi
+  fi
 fi
-
-# Load samtools
-conda activate samtools
-samtools --version || exit 1
-
-# Run samtools stats
-cmd=(
-  samtools stats
-  -@ "$SLURM_CPUS_PER_TASK"
-  -r "$genome_local_unzip"
-  "$TMPDIR/$in_bam"
-)
-echo "${cmd[*]} > $TMPDIR/$stats_file"
-"${cmd[@]}" > "$TMPDIR/$stats_file"
-
-# Copy all resulting .txt, .stats, & .pdf files from temporary storage
-echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.txt $outdir/"
-rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.txt "$outdir/"
-echo "rsync --progress $TMPDIR/$stats_file $outdir/"
-rsync --progress "$TMPDIR/$stats_file" "$outdir/"
-echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.pdf $outdir/"
-rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.pdf "$outdir/"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$align_metrics" ]] \
+if [[ "$check" == "pass" ]] \
+  && [[ -f "$outdir/$align_metrics" ]] \
   && [[ -f "$outdir/$align_pdf" ]] \
   && [[ -f "$outdir/$insert_metrics" ]] \
   && [[ -f "$outdir/$insert_pdf" ]] \

@@ -6,7 +6,10 @@
 #SBATCH --cpus-per-task=8
 
 # Log Slurm job details
-echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
 # Print date and time
@@ -93,15 +96,14 @@ do
         "$indir/$in_bam"
       )
       echo "${samtools_cmd[*]}"
-      "${samtools_cmd[@]}"
-      conda deactivate
-      if [[ -f "$TMPDIR/$q_bam" ]]
+      if "${samtools_cmd[@]}" && [[ -f "$TMPDIR/$q_bam" ]]
       then
         in_bam="$q_bam"
       else
         echo "Error - queryname sorted BAM ($q_bam) not created."
         exit 1
       fi
+      conda deactivate
     else
       # Otherwise copy input BAM to /tmp
       echo "rsync --progress $indir/$in_bam $TMPDIR/"
@@ -158,7 +160,7 @@ cmd=(
   --conf spark.network.timeout="300s"
 )
 echo "${cmd[*]}"
-"${cmd[@]}"
+"${cmd[@]}" && check="pass"
 
 # Copy results from temporary storage
 echo "rsync --progress $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
@@ -171,7 +173,8 @@ echo; date +"$date_fmt"; echo
 
 # Checkpoint
 mkdir -p checkpoints
-if [[ -f "$outdir/$out_bam" ]] \
+if [[ "$check" == "pass" ]] \
+  && [[ -f "$outdir/$out_bam" ]] \
   && [[ -f "$outdir/$out_bam.bai" ]] \
   && [[ -f "$qc_dir/$metrics_file" ]]
 then
