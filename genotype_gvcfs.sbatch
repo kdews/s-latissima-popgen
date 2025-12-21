@@ -70,7 +70,6 @@ cmd=(
   # Give TMPDIR environment variable (Slurm sets this)
   --tmp-dir "$TMPDIR"
   --genomicsdb-shared-posixfs-optimizations
-  --verbosity DEBUG
 )
 echo "${cmd[*]}"
 "${cmd[@]}" && check="pass"

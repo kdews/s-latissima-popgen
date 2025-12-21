@@ -3,7 +3,7 @@
 #SBATCH -o %x.log
 #SBATCH --time=05:00:00
 #SBATCH --mem=15g
-#SBATCH --cpus-per-task=11
+#SBATCH --cpus-per-task=12
 
 # Log Slurm job details
 if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
@@ -33,6 +33,16 @@ else
   exit 1
 fi
 
+# Check input VCF files exist
+mapfile -t vcfs < "$vcf_list"
+for vcf in "${vcfs[@]}"
+do
+  if [[ -f "$vcf" ]]
+  then
+    echo "Error - input VCF ($vcf) not found. Check VCF list: $vcf_list"
+    exit 1
+  fi
+done
 # Output VCF named from genome FASTA
 out_vcf="$outdir/master_$genome_base.vcf.gz"
 
@@ -50,13 +60,10 @@ fi
 conda activate bcftools
 bcftools --version || exit 1
 
-# Define threads for bcftools
-n_thread="$(( SLURM_CPUS_PER_TASK - 1 ))"
-
 # Run bcftools concat
 cmd=(
   bcftools concat
-  --threads "$n_thread"
+  --threads "$SLURM_CPUS_PER_TASK"
   -f "$vcf_list" # list of input VCF file paths
   -O z
   -o "$out_vcf"
@@ -67,13 +74,13 @@ then
   # Index full VCF file
   cmd2=(
     bcftools index
-    --threads "$n_thread"
+    --threads "$SLURM_CPUS_PER_TASK"
     --tbi
     "$out_vcf"
   )
   echo
   echo "${cmd2[*]}"
-  "${cmd[@]}" && check="pass"
+  "${cmd2[@]}" && check="pass"
 fi
 
 # Mark time at completion
