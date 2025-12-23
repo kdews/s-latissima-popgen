@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH -J validate_variants
+#SBATCH -J validate_variants_verbose
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=05:00:00
 #SBATCH --mem=8g
@@ -8,9 +8,6 @@
 if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
 then
   echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
-  checkfile="checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
-else
-  checkfile="checkpoints/$prefix.checkpoint"
 fi
 echo "Partition: $SLURM_JOB_PARTITION"
 
@@ -44,7 +41,7 @@ if [[ "$id_file" == "indexer/intervals_list.txt" ]]
 then
   # Use Slurm ID for genomic intervals
   id="interval_${SLURM_ARRAY_TASK_ID}"
-elif echo "$id_file" | grep -q "master"
+elif [[ "$id_file" == "master" ]]
 then
   id="$id_file"
 else
@@ -98,8 +95,7 @@ cmd=(
   gatk
   --java-options "-Xms$gatk_mem_min -Xmx$gatk_mem_max"
   ValidateVariants
-  # Silence errors for ungenotyped alleles within multiallelic sites
-  --validation-type-to-exclude ALLELES
+  --verbosity DEBUG
   -R "$genome_local_unzip"
   --sequence-dictionary "$genome_dict"
   -V "$TMPDIR/$in_vcf"
@@ -115,7 +111,7 @@ then
   # Mark time at completion
   echo; date +"$date_fmt"; echo
   echo "Creating checkpoint."
-  touch "$checkfile"
+  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
   exit 0
 else
   # Mark time at completion

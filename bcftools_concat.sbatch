@@ -37,14 +37,14 @@ fi
 mapfile -t vcfs < "$vcf_list"
 for vcf in "${vcfs[@]}"
 do
-  if [[ -f "$vcf" ]]
+  if ! [[ -f "$vcf" ]]
   then
     echo "Error - input VCF ($vcf) not found. Check VCF list: $vcf_list"
     exit 1
   fi
 done
 # Output VCF named from genome FASTA
-out_vcf="$outdir/master_$genome_base.vcf.gz"
+out_vcf="$outdir/master_2025_$genome_base.vcf.gz"
 
 # Load conda
 cond=~/.conda_for_sbatch.sh

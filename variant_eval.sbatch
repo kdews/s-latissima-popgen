@@ -35,7 +35,7 @@ else
 fi
 
 # Input VCF file
-in_vcf_base="master_$genome_base"
+in_vcf_base="master_2025_$genome_base"
 in_vcf="$indir/$in_vcf_base.vcf.gz"
 # Verify input file exists
 [[ -f "$in_vcf" ]] || { echo "Error - missing input VCF ($in_vcf)"; exit 1; }

@@ -36,7 +36,7 @@ else
 fi
 
 # Input VCF filename
-in_vcf_base="master_$genome_base"
+in_vcf_base="master_2025_$genome_base"
 in_vcf="$indir/$in_vcf_base.vcf.gz"
 # Verify input file exists
 [[ -f "$in_vcf" ]] || { echo "Error - missing input VCF ($in_vcf)"; exit 1; }
@@ -61,12 +61,12 @@ bcftools --version || exit 1
 cmd=(
   bcftools stats
   --threads "$SLURM_CPUS_PER_TASK"
-  -s -
+  # -s -
   -F "$genome_local_unzip"
   "$in_vcf"
 )
 echo "${cmd[*]} > $stats_file"
-"${cmd[@]}" && check="pass"
+"${cmd[@]}" > "$stats_file" && check="pass"
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo
