@@ -41,8 +41,8 @@ fi
 
 # Parse sample ID and trimmed read filenames
 sample_id="$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$samples_list")"
-reads1="$indir/${sample_id}_R1_val_1.fq.gz"
-reads2="$indir/${sample_id}_R2_val_2.fq.gz"
+reads1="$indir/${sample_id}_R1_fastp.fastq.gz"
+reads2="$indir/${sample_id}_R2_fastp.fastq.gz"
 # Verify read files exist
 if [[ -f "$reads1" ]] && [[ -f "$reads2" ]]
 then

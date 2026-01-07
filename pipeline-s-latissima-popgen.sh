@@ -84,8 +84,8 @@ Analysis:
   vcfs/
     *.vcf.gz                    variant call files (VCFs) for each group of 
                                 genomic intervals
-  master_{genome_base}.vcf.gz   final VCF file of all samples aligned to the
-                                reference genome
+    master_{year}_{genome_base}.vcf.gz   final VCF file of all samples aligned 
+                                         to the reference genome
 
 Quality control:
   quality_control/
@@ -130,6 +130,7 @@ pipeline_func="pipeline_functions.sh"
 PIPELINE_LOGGING_ENABLED=true
 # File created by pipeline after parsing input genome filename
 genome_config="genome.conf"
+year="$(date +%Y)" # current year
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 {
   echo
@@ -252,173 +253,14 @@ genome_idx="$genome_idx"
 ht2_idx="$ht2_idx"
 EOF
 
-# # Functions for pipeline execution
-# # Function lists checkpoint files for a step ($prefix)
-# ls_check () {
-#   local prefix
-#   prefix="$1"
-#   if [[ -z "$prefix" ]]
-#   then
-#     {
-#       date +"$date_fmt"
-#       echo "Error - no arguments given to 'ls_check'."
-#     } >> "$pipeline_log"
-#     exit 1
-#   fi
-#   # Check for array-formatted checkpoint files first
-#   len="$(find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint" | wc -l)"
-#   if (( len > 0 ))
-#   then
-#     find checkpoints -type f -name "${prefix}_[0-9]*.checkpoint"
-#   else
-#     find checkpoints -type f -name "$prefix.checkpoint"
-#   fi
-# }
-# # Function identifies checkpoint files for a step ($prefix) and
-# # returns a string of array indices (e.g., 1,2,4,) for missing checkpoint files
-# miss_check () {
-#   local prefix
-#   local array_size
-#   prefix="$1"
-#   array_size="$2"
-#   if [[ $# -ne 2 ]]
-#   then
-#     {
-#       date +"$date_fmt"
-#       echo "Error - 'miss_check' expected 2 arguments but received $#."
-#       echo "Arguments: $*"
-#     } >> "$pipeline_log"
-#     exit 1
-#   fi
-#   if [[ -n "$(ls_check "$prefix")" ]]
-#   then
-#     for i in $(seq "$array_size")
-#     do
-#       if [[ ! -f "checkpoints/${prefix}_$i.checkpoint" ]]
-#       then
-#         # Handle trailing comma
-#         if [[ "$i" -eq "$array_size" ]]
-#         then
-#           printf "%s" "$i"
-#         else
-#           printf "%s," "$i"
-#         fi
-#       fi
-#     done
-#   else
-#     echo "Error - no checkpoints found for step: $prefix" >> "$pipeline_log"
-#     exit 1
-#   fi
-# }
-# # Function runs job step (unless previous run succeeded)
-# # For array jobs, will submit only array indices for missing checkpoints
-# run_step () {
-#   local array_size
-#   local prefix
-#   local step_args
-#   local sbatch_file
-#   local logfile
-#   local num_checks
-#   local array_indices
-#   local array_flag
-#   local cmd
-
-#   # Arguments to function
-#   array_size="$1" # array size for job (integer)
-#   prefix="$2" # prefix of sbatch file for job (string)
-#   # Parse repeat calls to same sbatch file (prefix=<prefix>-#)
-#   prefix_base="${prefix%-[0-9]*}"
-
-#   # Log function call
-#   echo "run_step $*" >> "$pipeline_log"
-  
-#   # Name sbatch file from prefix BASE (no increments)
-#   sbatch_file="${scripts_dir}$prefix_base.sbatch"
-
-#   # Name log file(s)
-#   if (( array_size > 1 ))
-#   then
-#     # For array jobs, write logs to directory <prefix>_logs
-#     # Shoutout GOATED Slurm release 23.02
-#     logfile="%x_logs/%x_%a.log"
-#   else
-#     # For single jobs, write log to working directory
-#     logfile="%x.log"
-#   fi
-
-#   # Check for any existing checkpoints for prefix
-#   if [[ -n "$(ls_check "$prefix")" ]]
-#   then
-#     num_checks="$(ls_check "$prefix" | wc -l)" # count of checkpoint files
-#     echo "$num_checks checkpoint(s) detected for $prefix" >> "$pipeline_log"
-#     # Skip job step if all checkpoints exist
-#     if [[ "$num_checks" -eq "$array_size" ]]
-#     then
-#       echo "$prefix step already run. Skipping." >> "$pipeline_log"
-#       return 0
-#     # If some checkpoints missing for array jobs, submit only those array indices
-#     elif (( array_size > 1 ))
-#     then
-#       # Use missing checkpoints to set array indices for submission
-#       array_indices="$(miss_check "$prefix" "$array_size")"
-#       array_flag="--array=$array_indices%$max_run"
-#       {
-#         echo "Missing checkpoints for $prefix step. Restarting."
-#         echo "Submitting job array indices: $array_indices"
-#       } >> "$pipeline_log"
-#     # Catch unexpected checkpoint errors
-#     else
-#       echo "Error - inspect checkpoints for step: $prefix" >> "$pipeline_log"
-#       return 1
-#     fi
-#   else
-#     # Set sbatch --array flag for array jobs
-#     (( array_size > 1 )) && array_flag="--array=1-$array_size%$max_run"
-#     echo "Running $prefix step." >> "$pipeline_log"
-#   fi
-#   # Pass arguments to specific step script
-#   step_args=(
-#     "$prefix" # $1 to sbatch file
-#     "$genome_config" # $2 to sbatch file
-#     "${@:3}" # captures all remaining arguments to function
-#   )
-#   # Job submission command
-#   if [[ -n "$array_flag" ]]
-#   then
-#     cmd=(
-#       sbatch
-#       --parsable
-#       -p "$partition"
-#       -J "$prefix"
-#       -o "$logfile"
-#       "$array_flag"
-#       "$sbatch_file"
-#       "${step_args[@]}"
-#     )
-#   else
-#     cmd=(
-#       sbatch
-#       --parsable
-#       -p "$partition"
-#       -J "$prefix"
-#       -o "$logfile"
-#       "$sbatch_file"
-#       "${step_args[@]}"
-#     )
-#   fi
-#   # Log job submission
-#   echo "${cmd[*]}" >> "$pipeline_log"
-#   jobid="$("${cmd[@]}")"
-#   echo "Submitted batch job $jobid" >> "$pipeline_log"
-# }
-
 # Array containing arguments to each step of pipeline
 PIPELINE_STEPS=(
 #   [#_step]="<prefix>|[--array]|<input_dir>|<output_dir>|[index_file]|[extra_args]"
   "prep_ref|$bams_dir|$bams_dir"
   "rename|$raw_reads_dir|$samples_dir|$samples_list|$scripts_dir"
   "fastqc|--array|$samples_dir|$qc_dir|$samples_list"
-  "trim_galore|--array|$samples_dir|$trimmed_dir|$samples_list|$qc_dir"
+  # "trim_galore|--array|$samples_dir|$trimmed_dir|$samples_list|$qc_dir"
+  "fastp|--array|$samples_dir|$trimmed_dir|$samples_list|$qc_dir"
   "hisat2_build|$bams_dir|$bams_dir"
   "hisat2|--array|$trimmed_dir|$bams_dir|$samples_list|$qc_dir|$indiv_list"
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
@@ -432,7 +274,7 @@ PIPELINE_STEPS=(
   "genotype_gvcfs|--array|$genomicsdbimport_dir|$vcfs_dir|$intervals_list"
   "validate_variants|--array|$vcfs_dir|$qc_dir|$intervals_list|.vcf.gz"
   "bcftools_concat|$vcfs_dir|$vcfs_dir|$vcf_list"
-  "validate_variants|$vcfs_dir|$qc_dir|master_2025|.vcf.gz"
+  "validate_variants|$vcfs_dir|$qc_dir|master_$year|.vcf.gz"
   "variant_eval|$vcfs_dir|$qc_dir"
   "bcftools_stats|$vcfs_dir|$qc_dir"
   "multiqc|$qc_dir|$multiqc_dir|$scripts_dir"

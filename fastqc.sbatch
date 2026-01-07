@@ -43,12 +43,12 @@ else
   exit 1
 fi
 
-# Load FASTQC
+# Load FastQC
 conda activate fastqc
 fastqc --version || exit 1
 
-# Run FASTQC
-echo "Running FASTQC on read files associated with sample ID: $sample_id"
+# Run FastQC
+echo "Running FastQC on read files associated with sample ID: $sample_id"
 echo "1: $reads1"
 echo "2: $reads2"
 cmd=(
