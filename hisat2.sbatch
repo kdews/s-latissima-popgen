@@ -2,7 +2,7 @@
 #SBATCH -J hisat2
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=02:00:00
-#SBATCH --mem=145g
+#SBATCH --mem=100g
 #SBATCH --cpus-per-task=16
 
 # Log Slurm job details
@@ -146,8 +146,8 @@ if "${hisat2_cmd[@]}" | "${samtools_cmd[@]}"
 then
   # Define memory for GATK4 FixMateInformation
   # Allocate from remaining memory (/tmp stores in RAM)
-  file_mem="$(du -m "$TMPDIR/$tmp1_bam" | awk '{print $1}')"
-  mem="$(( SLURM_MEM_PER_NODE - file_mem ))"
+  tmp_mem="$(du -m "$TMPDIR" | awk '{print $1}')"
+  mem="$(( SLURM_MEM_PER_NODE - tmp_mem ))"
   # Minimum = 50% of memory remaining 
   gatk_mem_min="$(( 5 * mem / 10 ))M"
   # Maximum = 90% of memory remaining
@@ -175,8 +175,8 @@ then
   then
     # Define memory for GATK4 SetNmMdAndUqTags
     # Allocate from remaining memory (/tmp stores in RAM)
-    file_mem2="$(du -m "$TMPDIR/$tmp2_bam" | awk '{print $1}')"
-    mem="$(( SLURM_MEM_PER_NODE - file_mem - file_mem2 ))"
+    tmp_mem2="$(du -m "$TMPDIR" | awk '{print $1}')"
+    mem="$(( SLURM_MEM_PER_NODE - tmp_mem2 ))"
     # Minimum = 50% of memory remaining 
     gatk_mem_min="$(( 5 * mem / 10 ))M"
     # Maximum = 90% of memory remaining

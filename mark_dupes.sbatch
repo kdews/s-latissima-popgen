@@ -2,7 +2,7 @@
 #SBATCH -J mark_dupes
 #SBATCH -o %x_logs/%x_%a.log
 #SBATCH --time=02:00:00
-#SBATCH --mem=100g
+#SBATCH --mem=65g
 #SBATCH --cpus-per-task=8
 
 # Log Slurm job details
