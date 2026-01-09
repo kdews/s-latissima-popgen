@@ -5,13 +5,6 @@
 #SBATCH --mem=100g
 #SBATCH --cpus-per-task=16
 
-# Log Slurm job details
-if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
-then
-  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
-fi
-echo "Partition: $SLURM_JOB_PARTITION"
-
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -25,6 +18,13 @@ outdir="$4" # output directory
 samples_list="$5" # list of sample IDs
 qc_dir="$6" # directory to write QC output
 indiv_list="$7" # file to write parsed individual IDs
+
+# Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Create output and QC directories (if needed)
 mkdir -p "$outdir"

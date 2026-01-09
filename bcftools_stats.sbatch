@@ -5,13 +5,6 @@
 #SBATCH --mem=10g
 #SBATCH --cpus-per-task=12
 
-# Log Slurm job details
-if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
-then
-  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
-fi
-echo "Partition: $SLURM_JOB_PARTITION"
-
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -22,6 +15,13 @@ prefix="$1" # job name
 genome_config="$2" # genome config file
 indir="$3" # input directory
 outdir="$4" # output directory
+
+# Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+fi
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Create output directory (if needed)
 mkdir -p "$outdir"

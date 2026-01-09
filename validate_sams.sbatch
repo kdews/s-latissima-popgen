@@ -4,13 +4,6 @@
 #SBATCH --time=05:00:00
 #SBATCH --mem=20g
 
-# Log Slurm job details
-if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
-then
-  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
-fi
-echo "Partition: $SLURM_JOB_PARTITION"
-
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -23,6 +16,16 @@ indir="$3" # input directory
 outdir="$4" # output directory
 id_file="$5" # index file (any text file list in indexer/)
 pattern="$6" # SAM/BAM file ending pattern (e.g., .sorted.bam)
+
+# Log Slurm job details
+if [[ -n "$SLURM_ARRAY_TASK_ID" ]]
+then
+  echo "Slurm array job ID: ${SLURM_ARRAY_JOB_ID}_$SLURM_ARRAY_TASK_ID"
+  checkfile="checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+else
+  checkfile="checkpoints/$prefix.checkpoint"
+fi
+echo "Partition: $SLURM_JOB_PARTITION"
 
 # Create output directory (if needed)
 mkdir -p "$outdir"
@@ -102,7 +105,7 @@ mkdir -p checkpoints
 if [[ "$check" == "pass" ]] && [[ -f "$outdir/$out_summary" ]]
 then
   echo "Creating checkpoint."
-  touch "checkpoints/${prefix}_$SLURM_ARRAY_TASK_ID.checkpoint"
+  touch "$checkfile"
   exit 0
 else
   echo "Error - ValidateSamFile summary for BAM ($in_bam) not found."
