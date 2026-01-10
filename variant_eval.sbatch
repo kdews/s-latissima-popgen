@@ -35,7 +35,8 @@ else
 fi
 
 # Input VCF file
-in_vcf_base="master_2025_$genome_base"
+year="$(date +%Y)" # current year
+in_vcf_base="master_${year}_$genome_base"
 in_vcf="$indir/$in_vcf_base.vcf.gz"
 # Verify input file exists
 [[ -f "$in_vcf" ]] || { echo "Error - missing input VCF ($in_vcf)"; exit 1; }

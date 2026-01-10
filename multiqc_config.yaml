@@ -19,7 +19,7 @@ title: "Saccharina gametophyte WGS QC"
 show_analysis_paths: False
 
 # Output parsed data directory in addition to the report
-data_dir_name: multiqc_data
+# data_dir_name: multiqc_data
 make_data_dir: True
 
 # Ignore files larger than this when searching for logs (bytes)

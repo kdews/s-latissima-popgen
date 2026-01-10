@@ -61,6 +61,7 @@ cmd=(
   multiqc
   -c "$multiqc_config"
   -n "$out_report"
+  -o "$outdir"
   # --replace-names multiqc_rename_samples.tsv
   "$indir"
 )

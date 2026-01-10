@@ -44,7 +44,8 @@ do
   fi
 done
 # Output VCF named from genome FASTA
-out_vcf="$outdir/master_2025_$genome_base.vcf.gz"
+year="$(date +%Y)" # current year
+out_vcf="$outdir/master_${year}_$genome_base.vcf.gz"
 
 # Load conda
 cond=~/.conda_for_sbatch.sh

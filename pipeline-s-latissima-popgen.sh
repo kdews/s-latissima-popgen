@@ -55,10 +55,11 @@ Analysis:
     gvcf.sample_map             GATK4-style sample map for gVCF files 
     vcf.list                    indexes VCF files (in numerical order)
   wgs/                        
-    *.fastq.gz                  FASTQ files renamed to shorter sample IDs 
-                                (copied from source)
+    *R1/R2.fastq.gz                  paired-end FASTQ files renamed to shorter 
+                                sample IDs (copied from user-provided source)
   trimmed_reads/
     *_val_1/2.fq.gz             reads post trimming by Trim Galore!
+    *R1/R2_fastp.fastq.gz       reads post trimming by fastp
   bams/
     *.fasta                     reference genome (copied from source)
     *.fasta.ht2                 indexed reference genome
