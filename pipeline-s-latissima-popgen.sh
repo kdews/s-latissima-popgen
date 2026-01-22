@@ -260,7 +260,6 @@ PIPELINE_STEPS=(
   "prep_ref|$bams_dir|$bams_dir"
   "rename|$raw_reads_dir|$samples_dir|$samples_list|$scripts_dir"
   "fastqc|--array|$samples_dir|$qc_dir|$samples_list"
-  # "trim_galore|--array|$samples_dir|$trimmed_dir|$samples_list|$qc_dir"
   "fastp|--array|$samples_dir|$trimmed_dir|$samples_list|$qc_dir"
   "hisat2_build|$bams_dir|$bams_dir"
   "hisat2|--array|$trimmed_dir|$bams_dir|$samples_list|$qc_dir|$indiv_list"
