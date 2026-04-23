@@ -4,6 +4,10 @@
 #SBATCH --time=05:00:00
 #SBATCH --mem=8g
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -67,8 +71,9 @@ fi
 echo
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_vcf $indir/$in_vcf_idx $TMPDIR/"
-rsync --progress "$indir/$in_vcf" "$indir/$in_vcf_idx" "$TMPDIR/"
+set -x
+rsync --info=progress2 -ah "$indir/$in_vcf" "$indir/$in_vcf_idx" "$TMPDIR/"
+set +x
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)

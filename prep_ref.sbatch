@@ -4,6 +4,10 @@
 #SBATCH --time=02:00:00
 #SBATCH --mem=500m
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -40,7 +44,9 @@ then
   if [[ ! -f "$genome_local" ]]
   then
     echo "Copying genome ($genome) to: $(realpath -e "$indir")"
-    rsync -avc "$genome" "$indir/"
+    set -x
+    rsync --progress -avch "$genome" "$indir/"
+    set +x
   fi
   module purge
   module load ver/2506 gcc/14.3.0 gzip/1.14

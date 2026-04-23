@@ -5,6 +5,10 @@
 #SBATCH --mem=65g
 #SBATCH --cpus-per-task=8
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -106,8 +110,9 @@ do
       conda deactivate
     else
       # Otherwise copy input BAM to /tmp
-      echo "rsync --progress $indir/$in_bam $TMPDIR/"
-      rsync --progress "$indir/$in_bam" "$TMPDIR/"
+      set -x
+      rsync --progress -ah "$indir/$in_bam" "$TMPDIR/"
+      set +x
     fi
     # Save updated file path and add required "-I" flag before each filename
     # input_bams[i]="$TMPDIR/$in_bam"
@@ -163,10 +168,10 @@ echo "${cmd[*]}"
 "${cmd[@]}" && check="pass"
 
 # Copy results from temporary storage
-echo "rsync --progress $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
-rsync --progress "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
-echo "rsync --progress $TMPDIR/$metrics_file $qc_dir/"
-rsync --progress "$TMPDIR/$metrics_file" "$qc_dir/"
+set -x
+rsync --info=progress2 -ah "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
+rsync --progress -ah "$TMPDIR/$metrics_file" "$qc_dir/"
+set +x
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo

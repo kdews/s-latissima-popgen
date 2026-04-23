@@ -60,7 +60,7 @@ with open(og_file, 'r') as files:
 				read_fq = file_list[10]
 			newname = sampleid + '_' + library + '_' + runid + '_' + barcode + '_' + plate + '_' + lane + '_' + read_fq
 			# Write list of rsync commands (-c verifies file content)
-			cmd = f'rsync -ac --progress {file.strip()} {os.path.join(outdir, newname)}\n'
+			cmd = f'rsync -ach --progress {file.strip()} {os.path.join(outdir, newname)}\n'
 			cmd_list.write(cmd)
 		cmd_list.close()
 	files.close()

@@ -4,6 +4,10 @@
 #SBATCH --time=10:00:00
 #SBATCH --mem=20g
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -57,8 +61,9 @@ echo
 out_gvcf="${indiv_id}_$genome_base.g.vcf.gz"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_bam $indir/$in_bam_idx $TMPDIR/"
-rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
+set -x
+rsync --info=progress2 -ah "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
+set +x
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
@@ -102,8 +107,9 @@ echo "${cmd[*]}"
 "${cmd[@]}" && check="pass"
 
 # Copy results from temporary storage
-echo "rsync --progress $TMPDIR/$out_gvcf $TMPDIR/$out_gvcf.tbi $outdir/"
-rsync --progress "$TMPDIR/$out_gvcf" "$TMPDIR/$out_gvcf.tbi" "$outdir/"
+set -x
+rsync --info=progress2 -ah "$TMPDIR/$out_gvcf" "$TMPDIR/$out_gvcf.tbi" "$outdir/"
+set +x
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo

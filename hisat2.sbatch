@@ -5,6 +5,10 @@
 #SBATCH --mem=100g
 #SBATCH --cpus-per-task=16
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -208,8 +212,9 @@ then
       then
         check="pass"
         # Copy only final BAM to working directory
-        echo "rsync --progress $TMPDIR/$out_bam $TMPDIR/$out_bam.bai $outdir/"
-        rsync --progress "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
+        set -x
+        rsync --info=progress2 -ah "$TMPDIR/$out_bam" "$TMPDIR/$out_bam.bai" "$outdir/"
+        set +x
       fi
     fi
   fi

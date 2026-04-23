@@ -61,8 +61,9 @@ echo
 out_summary="$in_bam.validate.summary"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_bam $indir/$in_bam_idx $TMPDIR/"
-rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
+set -x
+rsync --info=progress2 -ah "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
+set +x
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
@@ -94,8 +95,9 @@ echo "${cmd[*]}"
 "${cmd[@]}" && check="pass"
 
 # Copy result from temporary storage
-echo "rsync --progress $TMPDIR/$out_summary $outdir/"
-rsync --progress "$TMPDIR/$out_summary" "$outdir/"
+set -x
+rsync --progress -ah "$TMPDIR/$out_summary" "$outdir/"
+set +x
 
 # Mark time at completion
 echo; date +"$date_fmt"; echo

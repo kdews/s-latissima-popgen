@@ -5,6 +5,10 @@
 #SBATCH --mem=35g
 #SBATCH --cpus-per-task=12
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
@@ -70,8 +74,9 @@ wgs_metrics="$uniq_id.collect_wgs_metrics.txt"
 stats_file="$uniq_id.stats"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$in_bam $indir/$in_bam_idx $TMPDIR/"
-rsync --progress "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
+set -x
+rsync --info=progress2 -ah "$indir/$in_bam" "$indir/$in_bam_idx" "$TMPDIR/"
+set +x
 
 # Define memory for GATK4
 # Allocate from remaining memory (/tmp stores in RAM)
@@ -153,12 +158,13 @@ then
       check="pass"
 
       # Copy all resulting .txt, .stats, & .pdf files from temporary storage
-      echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.txt $outdir/"
-      rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.txt "$outdir/"
-      echo "rsync --progress $TMPDIR/$stats_file $outdir/"
-      rsync --progress "$TMPDIR/$stats_file" "$outdir/"
-      echo "rsync --progress $TMPDIR/${indiv_id}_$genome_base*.pdf $outdir/"
-      rsync --progress "$TMPDIR/${indiv_id}_$genome_base"*.pdf "$outdir/"
+      set -x
+      rsync --info=progress2 -ah \
+        "$TMPDIR/$stats_file" \
+        "$TMPDIR/${indiv_id}_$genome_base"*.txt \
+        "$TMPDIR/${indiv_id}_$genome_base"*.pdf \
+        "$outdir/"
+      set +x
     fi
   fi
 fi

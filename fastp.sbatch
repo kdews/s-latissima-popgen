@@ -5,6 +5,10 @@
 #SBATCH --mem=20g
 #SBATCH --cpus-per-task=15
 
+# -e  exit on error
+# -o pipefail  catch errors in pipes
+set -eo pipefail
+
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)"
 date +"$date_fmt"
@@ -41,8 +45,9 @@ html_report="${sample_id}_fastp.html"
 json_report="${sample_id}_fastp.json"
 
 # Use temporary storage for computations
-echo "rsync --progress $indir/$reads1 $indir/$reads2 $TMPDIR/"
-rsync --progress "$indir/$reads1" "$indir/$reads2" "$TMPDIR/"
+set -x
+rsync --info=progress2 "$indir/$reads1" "$indir/$reads2" "$TMPDIR/"
+set +x
 
 # Load conda
 cond=~/.conda_for_sbatch.sh
@@ -86,12 +91,11 @@ cmd=(
 echo "${cmd[*]}"
 if "${cmd[@]}"
 then
-  # Copy trimmed reads to output directory
-  echo "rsync --progress $TMPDIR/$trim1 $TMPDIR/$trim2 $outdir/"
-  rsync --progress "$TMPDIR/$trim1" "$TMPDIR/$trim2" "$outdir/"
-  # Copy reports to QC directory
-  echo "rsync --progress $TMPDIR/$html_report $TMPDIR/$json_report $qc_dir/"
-  rsync --progress "$TMPDIR/$html_report" "$TMPDIR/$json_report" "$qc_dir/"
+  # Copy trimmed reads to output dir and reports to QC dir
+  set -x
+  rsync --info=progress2 "$TMPDIR/$trim1" "$TMPDIR/$trim2" "$outdir/"
+  rsync --info=progress2 "$TMPDIR/$html_report" "$TMPDIR/$json_report" "$qc_dir/"
+  set +x
 
   echo "Cleaning temporary directory: $TMPDIR"
   rm -rf "$TMPDIR"/*
