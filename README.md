@@ -100,11 +100,12 @@ ls $vcfs_dir/*${genome_base}.sorted.vcf.gz > $vcf_list
 ## Output
 ### Notes
 - Slurm scripts and logs are named with the convention:
-  - \<prefix\>.sbatch (job submission script)
-  - \<prefix\>.log (non-array job logs)
-  - \<prefix\>_logs/\<prefix\>_#.log (array job logs)
-- Final genotyped VCFs are named:
-  - \<vcf_base\>.vcf.gz (vcf_base = master_\<year\>_\<ref\>, where ref = reference FASTA filename base)
+  - `<prefix>.sbatch`: job submission script
+  - `<prefix>.log`: non-array job logs
+  - `<prefix>_logs/<prefix>_#.log`: array job logs
+- Final genotyped VCFs are named: `<vcf_base>.vcf.gz`
+  - vcf_base: `master_<year>_<ref>`
+    - ref: reference FASTA filename base
 ```
   .
   ├── bam_stats_logs                  # Slurm log files for array job submission
