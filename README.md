@@ -108,83 +108,83 @@ ls $vcfs_dir/*${genome_base}.sorted.vcf.gz > $vcf_list
     - ref: reference FASTA filename base
 ```
   .
-  ├── bam_stats_logs                  # Slurm log files for array job submission
+  ├── bam_stats_logs                                # Slurm log files for array job submission
   ├── bams
-  |   ├── <ref>.fasta                                # reference genome (copied)
-  |   ├── <ref>.fasta.ht2                             # indexed reference genome
-  |   ├── <ref>.fasta.fai                    # samtools-indexed reference genome
-  |   ├── <ref>.dict                   # GATK4-style reference genome dictionary
-  |   ├── <sample_ID>_<ref>.sorted.bam               # initial sorted alignments
-  |   └── <indiv_ID>_<ref>.sorted.marked.bam # final duplicate-marked alignments
-  ├── bcftools_concat.log                                       # Slurm log file
-  ├── bcftools_stats.log                                        # Slurm log file
+  |   ├── <ref>.fasta                                              # reference genome (copied)
+  |   ├── <ref>.fasta.ht2                                           # indexed reference genome
+  |   ├── <ref>.fasta.fai                                  # samtools-indexed reference genome
+  |   ├── <ref>.dict                                 # GATK4-style reference genome dictionary
+  |   ├── <sample_ID>_<ref>.sorted.bam                             # initial sorted alignments
+  |   └── <indiv_ID>_<ref>.sorted.marked.bam               # final duplicate-marked alignments
+  ├── bcftools_concat.log                                                     # Slurm log file
+  ├── bcftools_stats.log                                                      # Slurm log file
   ├── checkpoints
-  |   ├── <prefix>.checkpoint             # checkpoint for non-array job success
-  |   └── <prefix>_<#>.checkpoint         # checkpoint for array (#) job success
-  ├── collect_metrics_logs            # Slurm log files for array job submission
-  ├── fastp_logs                      # Slurm log files for array job submission
-  ├── fastqc_logs                     # Slurm log files for array job submission
-  ├── gather_vcfs.log                                           # Slurm log file
+  |   ├── <prefix>.checkpoint                           # checkpoint for non-array job success
+  |   └── <prefix>_<#>.checkpoint                      # checkpoint for array (#) job success
+  ├── collect_metrics_logs                          # Slurm log files for array job submission
+  ├── fastp_logs                                    # Slurm log files for array job submission
+  ├── fastqc_logs                                   # Slurm log files for array job submission
+  ├── gather_vcfs.log                                                         # Slurm log file
   ├── genomicsdbimport
-  |   └── interval_#                  # GATK4-style GenomicsDB for each interval
-  ├── genomicsdbimport_logs           # Slurm log files for array job submission
-  ├── genotype_gvcfs_logs             # Slurm log files for array job submission
+  |   └── interval_#                                # GATK4-style GenomicsDB for each interval
+  ├── genomicsdbimport_logs                         # Slurm log files for array job submission
+  ├── genotype_gvcfs_logs                           # Slurm log files for array job submission
   ├── gvcfs
-  |   └── <indiv_ID>.g.vcf.gz         # per-indiviudal genome variant call files
-  ├── haplotype_caller_logs           # Slurm log files for array job submission
-  ├── hisat2_build.log                                          # Slurm log file
-  ├── hisat2_logs                     # Slurm log files for array job submission
-  ├── indexer                                                # indexes for input
-  |   ├── samples_list.txt                                     # sample ID index
-  |   ├── individuals_file.txt                             # individual ID index
-  |   ├── intervals_list.txt                         # split interval list index
-  |   ├── gvcf.sample_map                # GATK4-style sample map for gVCF files 
-  |   └── vcf.list                     # index of VCF files (in numerical order)
-  ├── mark_dupes_logs                 # Slurm log files for array job submission
-  ├── multiqc.log                                               # Slurm log file
+  |   └── <indiv_ID>.g.vcf.gz                       # per-indiviudal genome variant call files
+  ├── haplotype_caller_logs                         # Slurm log files for array job submission
+  ├── hisat2_build.log                                                        # Slurm log file
+  ├── hisat2_logs                                   # Slurm log files for array job submission
+  ├── indexer                                                              # indexes for input
+  |   ├── samples_list.txt                                                   # sample ID index
+  |   ├── individuals_file.txt                                           # individual ID index
+  |   ├── intervals_list.txt                                       # split interval list index
+  |   ├── gvcf.sample_map                              # GATK4-style sample map for gVCF files 
+  |   └── vcf.list                                   # index of VCF files (in numerical order)
+  ├── mark_dupes_logs                               # Slurm log files for array job submission
+  ├── multiqc.log                                                             # Slurm log file
   ├── multiqc_data_<date>
-  |   ├── multiqc_report_<date>_data                       # MultiQC report data
-  |   └── multiqc_report_<date>.html                    # MultiQC report summary
-  ├── prep_ref.log                                              # Slurm log file
-  ├── quality_control                               # QC reports after each step
-  |   ├── <sample_ID>_R#_fastqc.html                   # raw read FastQC reports
-  |   ├── <sample_ID>_R#_fastqc.zip                       # raw read FastQC data
-  |   ├── <sample_ID>_fastp.html                      # fastp trimming QC report
-  |   ├── <sample_ID>_fastp.json                        # fastp trimming QC data
-  |   ├── <sample_ID>_R#_fastp_fastqc.html         # trimmed read FastQC reports
-  |   ├── <sample_ID>_R#_fastp_fastqc.zip             # trimmed read FastQC data
-  |   ├── <sample_ID>_<ref>.hisat2.summary          # HISAT2 alignment QC report
-  |   ├── <sample_ID>_<ref>.sorted.bam.validate.summary        # ValidateSamFile
-  |   ├── <indiv_ID>_<ref>.marked_dup_metrics.txt      MarkDuplicates QC metrics
-  |   ├── <indiv_ID>_<ref>.sorted.marked.bam.validate.summary  # ValidateSamFile
-  |   ├── <indiv_ID>_<ref>.alignment_summary_metrics.txt # CollectAlignmentSummaryMetrics
-  |   ├── <indiv_ID>_<ref>.read_length_histogram.pdf  # CollectAlignmentSummaryMetrics
-  |   ├── <indiv_ID>_<ref>.collect_wgs_metrics.txt           # CollectWgsMetrics
-  |   ├── <indiv_ID>_<ref>.insert_size_histogram.pdf  # CollectInsertSizeMetrics
-  |   ├── <indiv_ID>_<ref>.insert_size_metrics.txt    # CollectInsertSizeMetrics
-  |   ├── <indiv_ID>_<ref>.quality_yield_metrics.txt # CollectQualityYieldMetrics
-  |   ├── <indiv_ID>_<ref>.stats    # samtools stats QC of final alignment files
-  |   ├── <vcf_base>.bcftools.stats      # bcftools stats QC report of final VCF
-  |   └── <vcf_base>.variant_eval.txt       # VariantEval QC report of final VCF
-  ├── queen.log                                                   # pipeline log
-  ├── rename.log                                                # Slurm log file
+  |   ├── multiqc_report_<date>_data                                     # MultiQC report data
+  |   └── multiqc_report_<date>.html                                  # MultiQC report summary
+  ├── prep_ref.log                                                            # Slurm log file
+  ├── quality_control                                             # QC reports after each step
+  |   ├── <sample_ID>_R#_fastqc.html                                 # raw read FastQC reports
+  |   ├── <sample_ID>_R#_fastqc.zip                                     # raw read FastQC data
+  |   ├── <sample_ID>_fastp.html                                    # fastp trimming QC report
+  |   ├── <sample_ID>_fastp.json                                      # fastp trimming QC data
+  |   ├── <sample_ID>_R#_fastp_fastqc.html                       # trimmed read FastQC reports
+  |   ├── <sample_ID>_R#_fastp_fastqc.zip                           # trimmed read FastQC data
+  |   ├── <sample_ID>_<ref>.hisat2.summary                        # HISAT2 alignment QC report
+  |   ├── <sample_ID>_<ref>.sorted.bam.validate.summary                      # ValidateSamFile
+  |   ├── <indiv_ID>_<ref>.marked_dup_metrics.txt                  # MarkDuplicates QC metrics
+  |   ├── <indiv_ID>_<ref>.sorted.marked.bam.validate.summary                # ValidateSamFile
+  |   ├── <indiv_ID>_<ref>.alignment_summary_metrics.txt      # CollectAlignmentSummaryMetrics
+  |   ├── <indiv_ID>_<ref>.read_length_histogram.pdf          # CollectAlignmentSummaryMetrics
+  |   ├── <indiv_ID>_<ref>.collect_wgs_metrics.txt                         # CollectWgsMetrics
+  |   ├── <indiv_ID>_<ref>.insert_size_histogram.pdf                # CollectInsertSizeMetrics
+  |   ├── <indiv_ID>_<ref>.insert_size_metrics.txt                  # CollectInsertSizeMetrics
+  |   ├── <indiv_ID>_<ref>.quality_yield_metrics.txt              # CollectQualityYieldMetrics
+  |   ├── <indiv_ID>_<ref>.stats                  # samtools stats QC of final alignment files
+  |   ├── <vcf_base>.bcftools.stats                    # bcftools stats QC report of final VCF
+  |   └── <vcf_base>.variant_eval.txt                     # VariantEval QC report of final VCF
+  ├── queen.log                                                                 # pipeline log
+  ├── rename.log                                                              # Slurm log file
   ├── split_intervals
-  |   └── ####-scattered.interval_list  # GATK4-style lists of genomic intervals
-  ├── split_intervals.log                                       # Slurm log file
-  ├── trim_galore_logs                # Slurm log files for array job submission
+  |   └── ####-scattered.interval_list                # GATK4-style lists of genomic intervals
+  ├── split_intervals.log                                                     # Slurm log file
+  ├── trim_galore_logs                              # Slurm log files for array job submission
   ├── trimmed_reads
-  |   └── <sample_ID>_R#_fastp.fastq.gz                 # reads trimmed by fastp
-  ├── validate_sams-2_logs            # Slurm log files for array job submission
-  ├── validate_sams_logs              # Slurm log files for array job submission
-  ├── validate_variants-2_logs        # Slurm log files for array job submission
-  ├── validate_variants-3.log         # Slurm log files for array job submission
-  ├── validate_variants_logs          # Slurm log files for array job submission
-  ├── variant_eval.log                                          # Slurm log file
+  |   └── <sample_ID>_R#_fastp.fastq.gz                               # reads trimmed by fastp
+  ├── validate_sams-2_logs                          # Slurm log files for array job submission
+  ├── validate_sams_logs                            # Slurm log files for array job submission
+  ├── validate_variants-2_logs                      # Slurm log files for array job submission
+  ├── validate_variants-3.log                       # Slurm log files for array job submission
+  ├── validate_variants_logs                        # Slurm log files for array job submission
+  ├── variant_eval.log                                                        # Slurm log file
   ├── vcfs
-  |   ├── interval_#_<ref>.vcf.gz                        # VCFs at each interval
-  |   └── <vcf_base>.vcf.gz          # final VCF combined over genomic intervals
+  |   ├── interval_#_<ref>.vcf.gz                                      # VCFs at each interval
+  |   └── <vcf_base>.vcf.gz                        # final VCF combined over genomic intervals
   └── wgs
-      └── <sample_ID>_R#.fastq.gz            # renamed paired-end reads (copied)
+      └── <sample_ID>_R#.fastq.gz                          # renamed paired-end reads (copied)
 ```
 
 Direct any questions to Kelly DeWeese (kdeweese@mac.com)

@@ -103,7 +103,7 @@ Output:
   |   ├── <sample_ID>_R#_fastp_fastqc.zip             # trimmed read FastQC data
   |   ├── <sample_ID>_<ref>.hisat2.summary          # HISAT2 alignment QC report
   |   ├── <sample_ID>_<ref>.sorted.bam.validate.summary        # ValidateSamFile
-  |   ├── <indiv_ID>_<ref>.marked_dup_metrics.txt      MarkDuplicates QC metrics
+  |   ├── <indiv_ID>_<ref>.marked_dup_metrics.txt    # MarkDuplicates QC metrics
   |   ├── <indiv_ID>_<ref>.sorted.marked.bam.validate.summary  # ValidateSamFile
   |   ├── <indiv_ID>_<ref>.alignment_summary_metrics.txt # CollectAlignmentSummaryMetrics
   |   ├── <indiv_ID>_<ref>.read_length_histogram.pdf  # CollectAlignmentSummaryMetrics
