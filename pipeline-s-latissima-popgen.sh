@@ -3,10 +3,6 @@
 #SBATCH -J queen
 #SBATCH -o queen_sbatch_%j.log
 
-# -e  exit on error
-# -o pipefail  catch errors in pipes
-set -eo pipefail
-
 ## Variant calling pipeline
 # Slurm-based pipeline with sequential job steps
 # Controls job step submission with checkpoint files
@@ -132,6 +128,8 @@ Output:
   |   ├── interval_#_<ref>.vcf.gz                        # VCFs at each interval
   |   └── <vcf_base>.vcf.gz          # final VCF combined over genomic intervals
   └── wgs
+      ├── original_filenames.txt                   # list of original read paths
+      ├── rsync_list.txt                                # list of rsync commands
       └── <sample_ID>_R#.fastq.gz            # renamed paired-end reads (copied)
 
 Direct any questions to Kelly DeWeese (kdeweese@mac.com)
@@ -241,7 +239,7 @@ _log
 
 # Validate and parse user-defined variables
 # If genome file exists, change name to realpath
-if [[ -f "$genome" ]] 
+if [[ -f "$genome" ]]
 then
   genome="$(realpath -e "$genome")"
 else

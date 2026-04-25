@@ -59,8 +59,8 @@ ggplot(df, aes(x = `Bases (Gb)`)) +
 
 ggplot(df) +
   # geom_histogram(aes(x = `Bases (Gb)`, fill = Batch), show.legend = F)
-  geom_histogram(aes(x = `Coverage (X)`, fill = Subspecies), show.legend = F) +
-  # geom_histogram(aes(x = `Bases (Gb)`, fill = Population), show.legend = F)
+  # geom_histogram(aes(x = `Coverage (X)`, fill = Subspecies), show.legend = F) +
+  geom_histogram(aes(x = `Bases (Gb)`, fill = Population), show.legend = F)
   # geom_histogram(aes(x = `Bases (Gb)`, fill = Index), show.legend = F)
   facet_grid(rows = vars(Batch))
   # facet_grid(rows = vars(Instrument))

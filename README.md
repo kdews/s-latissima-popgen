@@ -184,6 +184,8 @@ ls $vcfs_dir/*${genome_base}.sorted.vcf.gz > $vcf_list
   |   ├── interval_#_<ref>.vcf.gz                                      # VCFs at each interval
   |   └── <vcf_base>.vcf.gz                        # final VCF combined over genomic intervals
   └── wgs
+      ├── original_filenames.txt                                 # list of original read paths
+      ├── rsync_list.txt                                              # list of rsync commands
       └── <sample_ID>_R#.fastq.gz                          # renamed paired-end reads (copied)
 ```
 
