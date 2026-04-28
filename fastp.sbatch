@@ -5,10 +5,6 @@
 #SBATCH --mem=20g
 #SBATCH --cpus-per-task=15
 
-# -e  exit on error
-# -o pipefail  catch errors in pipes
-set -eo pipefail
-
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)"
 date +"$date_fmt"

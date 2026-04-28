@@ -4,10 +4,6 @@
 #SBATCH --time=04:00:00
 #SBATCH --mem=50g
 
-# -e  exit on error
-# -o pipefail  catch errors in pipes
-set -eo pipefail
-
 # Print date and time
 date_fmt="%-I:%M:%S %p (%a %d %b %Y)" # date format
 date +"$date_fmt"
