@@ -73,7 +73,7 @@ echo; date +"$date_fmt"; echo
 
 # Checkpoints
 mkdir -p checkpoints
-if [[ "$check" == "pass" ]] && [[ -f "$out_report" ]] && [[ -d "$outdir" ]]
+if [[ "$check" == "pass" && -f "$outdir/$out_report" && -d "$outdir" ]]
 then
   echo "Creating checkpoint."
   touch "checkpoints/$prefix.checkpoint"
@@ -83,4 +83,3 @@ else
   echo "Checkpoint not created."
   exit 1
 fi
-

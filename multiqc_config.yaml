@@ -51,6 +51,9 @@ extra_fn_clean_exts:
   # Remove assembly name
   - type: regex
     pattern: "_SlaSLCT1FG3_1_AssemblyScaffolds_Repeatmasked"
+  # Remove trailing fastp after sample name
+  - type: regex
+    pattern: "_fastp"
   # Remove any text after first period
   - type: regex
     pattern: "\\..*$"
@@ -131,15 +134,15 @@ module_order:
       target: ""
       path_filters:
         - "*_fastp_fastqc.zip"
-  - fastqc:
-      name: "FastQC (cutadapt trimmed)"
-      anchor: "fastqc_trimmed"
-      info: "This section shows FastQC results after read trimming with cutadapt."
-      target: ""
-      path_filters:
-        - "*val_1_fastqc.zip"
-        - "*val_2_fastqc.zip"
-  - cutadapt
+  # - fastqc:
+  #     name: "FastQC (cutadapt trimmed)"
+  #     anchor: "fastqc_trimmed"
+  #     info: "This section shows FastQC results after read trimming with cutadapt."
+  #     target: ""
+  #     path_filters:
+  #       - "*val_1_fastqc.zip"
+  #       - "*val_2_fastqc.zip"
+  # - cutadapt
   - fastqc:
       name: "FastQC (raw)"
       info: "This section shows FastQC results before read trimming."
