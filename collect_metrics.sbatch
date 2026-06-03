@@ -141,7 +141,7 @@ then
     conda activate samtools
     samtools --version || exit 1
 
-    # Run samtools stats
+    # Run samtools stats
     cmd=(
       samtools stats
       -@ "$SLURM_CPUS_PER_TASK"

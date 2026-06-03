@@ -289,6 +289,7 @@ PIPELINE_STEPS=(
   "validate_sams|--array|$bams_dir|$qc_dir|$samples_list|.sorted.bam"
   "mark_dupes|--array|$bams_dir|$bams_dir|$indiv_list|$qc_dir"
   "validate_sams|--array|$bams_dir|$qc_dir|$indiv_list|.sorted.marked.bam"
+  "samtools_coverage|--array|$bams_dir|$qc_dir|$indiv_list"
   "collect_metrics|--array|$bams_dir|$qc_dir|$indiv_list"
   "haplotype_caller|--array|$bams_dir|$gvcfs_dir|$indiv_list"
   "validate_variants|--array|$gvcfs_dir|$qc_dir|$indiv_list|.g.vcf.gz"

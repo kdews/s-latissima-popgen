@@ -108,6 +108,8 @@ sp:
     fn: "*.collect_wgs_metrics.txt"
   samtools/stats:
     fn: "*.stats"
+  samtools/coverage:
+    fn: "*.sam_cov"
   gatk/varianteval:
     fn: "*.variant_eval.txt"
   bcftools/stats:
@@ -119,6 +121,7 @@ sp:
 module_order:
   - bcftools/stats
   - gatk/varianteval
+  - samtools/coverage
   - samtools/stats
   - picard/alignment_metrics
   - picard/insertsize
